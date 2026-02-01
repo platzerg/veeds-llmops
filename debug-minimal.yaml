@@ -1,0 +1,29 @@
+# Minimal test - True Negative (should pass)
+- description: "[tn-001] Valid entry"
+  vars:
+    yaml_entry: |
+      materialNumber: ABC-12345
+      description: Bremsscheibe vorne links
+      unit: mm
+      valueRange:
+        min: 20
+        max: 35
+      category: Bremsanlage
+  assert:
+    - type: javascript
+      value: |
+        const p = JSON.parse(output);
+        return p.isValid === true;
+
+# Minimal test - True Positive (should pass)  
+- description: "[tp-001] Invalid entry"
+  vars:
+    yaml_entry: |
+      materialNumber: INVALID
+      description: Bremsscheibe
+      unit: mm
+  assert:
+    - type: javascript
+      value: |
+        const p = JSON.parse(output);
+        return p.isValid === false;

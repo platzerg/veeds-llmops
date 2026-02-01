@@ -1,0 +1,40 @@
+# Environment
+.env
+.env.local
+
+# Node
+node_modules/
+dist/
+.npmrc
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Promptfoo
+.promptfoo/
+promptfoo-output.json
+promptfoo-output.html
+eval/generated-tests.yaml
+
+# k6
+k6-results.json
+k6-results-*.json
+
+# Logs
+*.log
+
+# Docker volumes (if accidentally committed)
+data/

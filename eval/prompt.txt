@@ -1,0 +1,27 @@
+Du bist ein YAML-Prüfer für Fahrzeugdaten im VEEDS-Format.
+
+Prüfe den folgenden YAML-Eintrag auf Fehler gemäß der VEEDS-Spezifikation 2.1.
+
+Regeln:
+- materialNumber: Muss dem Format XXX-NNNNN entsprechen (3 Großbuchstaben, Bindestrich, 5 Ziffern)
+- description: Darf nicht leer sein, darf höchstens 200 Zeichen lang sein (1-200 Zeichen sind gültig)
+- unit: Muss eine gültige SI-Einheit sein (kg, m, mm, l, bar, Nm, kW, V, A, °C, etc.)
+- valueRange (optional): Falls vorhanden, muss min < max sein
+- category (optional): Falls vorhanden, muss eine der definierten Kategorien sein (Motor, Bremsanlage, Fahrwerk, Elektrik, Karosserie, Antrieb)
+
+Antworte NUR mit einem JSON-Objekt im folgenden Format, ohne Markdown-Codeblöcke:
+{
+  "errors": [
+    {"field": "fieldName", "message": "Fehlerbeschreibung", "severity": "error|warning|info"}
+  ],
+  "isValid": true|false
+}
+
+Falls keine Fehler vorhanden sind, antworte mit:
+{
+  "errors": [],
+  "isValid": true
+}
+
+YAML-Eintrag:
+{{yaml_entry}}

@@ -1,0 +1,95 @@
+# =============================================================================
+# Promptfoo Evaluation Configuration - VEEDS Proofreader
+# =============================================================================
+# Run:  npx promptfoo eval
+# View: npx promptfoo view
+# CI:   npx promptfoo eval --assert (exit code 1 on failure)
+# =============================================================================
+
+description: "VEEDS Proofreader Evaluation"
+
+# ---------------------------------------------------------------------------
+# Prompts: Load from Langfuse or use local fallback
+# ---------------------------------------------------------------------------
+prompts:
+  # Option A: Load from Langfuse (requires LANGFUSE_* env vars)
+  # - "langfuse://veeds-proofreader@production"
+
+  # Option B: Local prompt file (always works)
+  - file://eval/prompt.txt
+
+# ---------------------------------------------------------------------------
+# Providers: AWS Bedrock via Claude
+# ---------------------------------------------------------------------------
+providers:
+  # Temporarily disabled due to missing AWS credentials
+  # - id: bedrock:anthropic.claude-3-5-sonnet-20241022-v2:0
+  #   label: "Claude 3.5 Sonnet (Bedrock)"
+  #   config:
+  #     region: "eu-central-1"
+  #     max_tokens: 2048
+  #     temperature: 0
+  
+  # Using OpenAI instead for now
+  - id: openai:chat:gpt-4o-mini
+    label: "GPT-4o Mini (OpenAI)"
+    config:
+      temperature: 0
+      max_tokens: 2048
+      apiKey: env:OPENAI_API_KEY
+  # Uncomment to compare models:
+  # - id: bedrock:anthropic.claude-3-haiku-20240307-v1:0
+  #   label: "Claude 3 Haiku (Bedrock)"
+  #   config:
+  #     region: "eu-central-1"
+  #     max_tokens: 2048
+  #     temperature: 0
+
+# ---------------------------------------------------------------------------
+# Default assertions applied to ALL test cases
+# ---------------------------------------------------------------------------
+defaultTest:
+  assert:
+    - type: is-json
+    - type: latency
+      threshold: 5000
+    - type: javascript
+      value: |
+        const parsed = JSON.parse(output);
+        return parsed.hasOwnProperty('isValid') && parsed.hasOwnProperty('errors');
+
+# ---------------------------------------------------------------------------
+# Test Cases: Load from generated Golden Dataset tests
+# ---------------------------------------------------------------------------
+tests: file://eval/generated-tests.yaml
+
+# ---------------------------------------------------------------------------
+# NOTE: If generated-tests.yaml doesn't exist yet, uncomment the inline
+# fallback below and run: npx tsx eval/generate-promptfoo-tests.ts
+# ---------------------------------------------------------------------------
+# tests:
+#   - description: "Fallback: Invalid materialNumber"
+#     vars:
+#       yaml_entry: "materialNumber: INVALID\ndescription: Bremsscheibe\nunit: mm"
+#     assert:
+#       - type: javascript
+#         value: "const p = JSON.parse(output); return p.isValid === false;"
+#   - description: "Fallback: Valid entry"
+#     vars:
+#       yaml_entry: "materialNumber: ABC-12345\ndescription: Bremsscheibe vorne links\nunit: mm"
+#     assert:
+#       - type: javascript
+#         value: "const p = JSON.parse(output); return p.isValid === true;"
+
+# ---------------------------------------------------------------------------
+# Output configuration
+# ---------------------------------------------------------------------------
+outputPath: ./eval/results/latest.json
+
+# ---------------------------------------------------------------------------
+# Evaluation options
+# ---------------------------------------------------------------------------
+evaluateOptions:
+  maxConcurrency: 5
+  repeat: 1
+  showProgressBar: true

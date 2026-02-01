@@ -1,0 +1,203 @@
+# =============================================================================
+# VEEDS LLMOps - GitLab CI/CD Pipeline
+# =============================================================================
+# Pipeline Strategy:
+#   - Every MR:       Promptfoo evaluation (quality gate)
+#   - Main branch:    Promptfoo + k6 (quality + performance)
+#   - Nightly:        Full regression + stress test
+# =============================================================================
+
+stages:
+  - quality
+  - performance
+  - report
+
+# ---------------------------------------------------------------------------
+# Global Variables
+# ---------------------------------------------------------------------------
+variables:
+  # Langfuse
+  LANGFUSE_HOST: ${LANGFUSE_HOST}
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+  # AWS (for Bedrock)
+  AWS_REGION: eu-central-1
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+# =============================================================================
+# QUALITY GATE: Promptfoo Evaluation
+# =============================================================================
+promptfoo-eval:
+  stage: quality
+  image: node:20-slim
+  before_script:
+    - npm ci --prefer-offline
+  script:
+    - echo "🔍 Generating tests from golden dataset..."
+    - npx tsx eval/generate-promptfoo-tests.ts
+    - echo "🔍 Running Promptfoo evaluation..."
+    - npx promptfoo eval -c promptfooconfig.yaml --assert --output eval/results/ci-${CI_PIPELINE_ID}.json
+    - echo "📊 Pushing scores to Langfuse..."
+    - npx tsx scripts/push-scores-to-langfuse.ts eval/results/ci-${CI_PIPELINE_ID}.json || true
+  artifacts:
+    paths:
+      - eval/results/ci-${CI_PIPELINE_ID}.json
+    expire_in: 30 days
+    when: always
+  rules:
+    # Run on every MR
+    - if: $CI_MERGE_REQUEST_ID
+    # Run on main branch
+    - if: $CI_COMMIT_BRANCH == "main"
+    # Run on nightly schedule
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  allow_failure: false
+  tags:
+    - docker
+
+# =============================================================================
+# QUALITY GATE: Promptfoo with Model Comparison (Nightly)
+# =============================================================================
+promptfoo-compare:
+  stage: quality
+  image: node:20-slim
+  before_script:
+    - npm ci --prefer-offline
+  script:
+    - echo "🔍 Running model comparison..."
+    - |
+      cat > /tmp/compare-config.yaml << 'EOF'
+      description: "Nightly Model Comparison"
+      prompts:
+        - file://eval/prompt.txt
+      providers:
+        - id: bedrock:anthropic.claude-3-5-sonnet-20241022-v2:0
+          label: "Sonnet 3.5"
+          config:
+            region: eu-central-1
+            max_tokens: 2048
+            temperature: 0
+        - id: bedrock:anthropic.claude-3-haiku-20240307-v1:0
+          label: "Haiku 3"
+          config:
+            region: eu-central-1
+            max_tokens: 2048
+            temperature: 0
+      tests:
+        - vars:
+            yaml_entry: "materialNumber: INVALID\ndescription: Test\nunit: mm"
+          assert:
+            - type: is-json
+            - type: javascript
+              value: "const p = JSON.parse(output); return p.isValid === false;"
+        - vars:
+            yaml_entry: "materialNumber: ABC-12345\ndescription: Bremsscheibe\nunit: mm"
+          assert:
+            - type: is-json
+            - type: javascript
+              value: "const p = JSON.parse(output); return p.isValid === true;"
+      EOF
+    - npx promptfoo eval -c /tmp/compare-config.yaml --output eval/results/compare-${CI_PIPELINE_ID}.json
+  artifacts:
+    paths:
+      - eval/results/compare-${CI_PIPELINE_ID}.json
+    expire_in: 30 days
+  rules:
+    # Only nightly
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  allow_failure: true
+  tags:
+    - docker
+
+# =============================================================================
+# PERFORMANCE: k6 Load Test
+# =============================================================================
+k6-load-test:
+  stage: performance
+  image:
+    name: grafana/k6:latest
+    entrypoint: [""]
+  variables:
+    API_URL: ${VEEDS_API_URL:-http://veeds-api:8080/graphql}
+    API_TOKEN: ${VEEDS_API_TOKEN:-}
+    K6_SCENARIO: "default"
+  script:
+    - echo "🏋️ Running k6 load test (scenario=${K6_SCENARIO})..."
+    - k6 run
+        -e API_URL=${API_URL}
+        -e API_TOKEN=${API_TOKEN}
+        -e K6_SCENARIO=${K6_SCENARIO}
+        --out json=k6-results.json
+        tests/load/graphql-test.js
+  artifacts:
+    paths:
+      - k6-results.json
+    reports:
+      load_performance: k6-results.json
+    expire_in: 30 days
+    when: always
+  rules:
+    # Run on main branch after quality gate passes
+    - if: $CI_COMMIT_BRANCH == "main"
+    # Run on nightly schedule
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  needs:
+    - job: promptfoo-eval
+      artifacts: false
+  tags:
+    - docker
+
+# =============================================================================
+# PERFORMANCE: k6 Stress Test (Nightly only)
+# =============================================================================
+k6-stress-test:
+  stage: performance
+  image:
+    name: grafana/k6:latest
+    entrypoint: [""]
+  variables:
+    API_URL: ${VEEDS_API_URL:-http://veeds-api:8080/graphql}
+    K6_SCENARIO: "stress"
+  script:
+    - echo "💪 Running k6 STRESS test..."
+    - k6 run
+        -e API_URL=${API_URL}
+        -e K6_SCENARIO=stress
+        --out json=k6-stress-results.json
+        tests/load/graphql-test.js
+  artifacts:
+    paths:
+      - k6-stress-results.json
+    expire_in: 30 days
+    when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  allow_failure: true
+  tags:
+    - docker
+
+# =============================================================================
+# REPORT: Summary (Optional)
+# =============================================================================
+pipeline-summary:
+  stage: report
+  image: alpine:latest
+  script:
+    - echo "📊 Pipeline Summary"
+    - echo "==================="
+    - echo "Branch:    ${CI_COMMIT_BRANCH}"
+    - echo "Pipeline:  ${CI_PIPELINE_ID}"
+    - echo "Commit:    ${CI_COMMIT_SHORT_SHA}"
+    - echo ""
+    - echo "Results:"
+    - echo "  - Promptfoo: eval/results/ci-${CI_PIPELINE_ID}.json"
+    - echo "  - k6:        k6-results.json"
+    - echo ""
+    - echo "Langfuse Dashboard: ${LANGFUSE_HOST}"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  when: always
+  tags:
+    - docker

@@ -1,0 +1,262 @@
+# =============================================================================
+# VEEDS LLMOps Stack - Langfuse v3 + Supporting Services
+# =============================================================================
+# Based on official Langfuse v3 docker-compose.yml
+# Docs: https://langfuse.com/self-hosting/deployment/docker-compose
+#
+# Usage:
+#   cp .env.example .env        # Copy and adjust secrets
+#   docker compose up -d        # Start all services
+#   docker compose logs -f      # Follow logs
+#
+# UI: http://localhost:3000 (Langfuse)
+# =============================================================================
+
+name: veeds-llmops
+
+services:
+  # ---------------------------------------------------------------------------
+  # Langfuse Web - Main UI + API (Port 3000)
+  # ---------------------------------------------------------------------------
+  langfuse-web:
+    image: langfuse/langfuse:3
+    container_name: langfuse-web
+    restart: unless-stopped
+    ports:
+      - "${LANGFUSE_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      # --- Database ---
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-langfuse}
+      # --- Auth ---
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in .env}
+      SALT: ${SALT:?Set SALT in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env}
+      # --- ClickHouse ---
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      # --- Redis ---
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_AUTH: ${REDIS_PASSWORD:-}
+      # --- S3 / MinIO ---
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${S3_BUCKET:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-miniosecret}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${S3_BUCKET:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-miniosecret}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_USE_AZURE_BLOB: "false"
+      # --- Features ---
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "true"
+      # --- Optional: Headless Init (uncomment to auto-create org/project) ---
+      # LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-}
+      # LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-}
+      # LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-}
+      # LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-}
+      # LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:-}
+      # LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:-}
+      # LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-}
+      # LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-}
+      # LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/public/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - aiqa
+
+  # ---------------------------------------------------------------------------
+  # Langfuse Worker - Async Event Processing
+  # ---------------------------------------------------------------------------
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    container_name: langfuse-worker
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3030:3030"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-langfuse}
+      # --- ClickHouse ---
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      # --- Redis ---
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_AUTH: ${REDIS_PASSWORD:-}
+      # --- S3 / MinIO ---
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${S3_BUCKET:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-miniosecret}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${S3_BUCKET:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-miniosecret}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_USE_AZURE_BLOB: "false"
+      # --- Auth (needed for worker) ---
+      SALT: ${SALT:?Set SALT in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env}
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - aiqa
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - Transactional Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: langfuse-postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-langfuse}
+    volumes:
+      - langfuse_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-langfuse}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aiqa
+
+  # ---------------------------------------------------------------------------
+  # ClickHouse - OLAP Database (Traces, Observations, Scores)
+  # ---------------------------------------------------------------------------
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: langfuse-clickhouse
+    restart: unless-stopped
+    user: "101:101"
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- 'http://localhost:8123/ping' | grep -q 'Ok'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aiqa
+
+  # ---------------------------------------------------------------------------
+  # Redis - Queue + Cache
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: langfuse-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - langfuse_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aiqa
+
+  # ---------------------------------------------------------------------------
+  # MinIO - S3-Compatible Blob Storage
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio
+    container_name: langfuse-minio
+    restart: unless-stopped
+    entrypoint: /bin/sh
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-miniosecret}
+    ports:
+      - "${MINIO_PORT:-9090}:9000"
+      - "127.0.0.1:9091:9001"
+    volumes:
+      - langfuse_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aiqa
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  langfuse_postgres_data:
+    driver: local
+  langfuse_clickhouse_data:
+    driver: local
+  langfuse_clickhouse_logs:
+    driver: local
+  langfuse_redis_data:
+    driver: local
+  langfuse_minio_data:
+    driver: local
+
+# =============================================================================
+# Network
+# =============================================================================
+networks:
+  aiqa:
+    driver: bridge

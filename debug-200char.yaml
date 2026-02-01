@@ -1,0 +1,12 @@
+# Test short description (should definitely pass)
+- description: "[test] Short description"
+  vars:
+    yaml_entry: |
+      materialNumber: ABC-12345
+      description: Short description
+      unit: kg
+  assert:
+    - type: javascript
+      value: |
+        const p = JSON.parse(output);
+        return p.isValid === true;

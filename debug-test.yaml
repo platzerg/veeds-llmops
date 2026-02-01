@@ -1,0 +1,18 @@
+- description: "Debug test - should pass"
+  vars:
+    yaml_entry: |
+      materialNumber: ABC-12345
+      description: Bremsscheibe vorne links
+      unit: mm
+      valueRange:
+        min: 20
+        max: 35
+      category: Bremsanlage
+  assert:
+    - type: javascript
+      value: |
+        console.log("Output:", output);
+        const parsed = JSON.parse(output);
+        console.log("Parsed:", parsed);
+        console.log("isValid:", parsed.isValid);
+        return parsed.isValid === true;

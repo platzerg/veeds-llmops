@@ -1,0 +1,19 @@
+- description: "[tn-001] Perfectly valid entry - Bremsscheibe"
+  vars:
+    yaml_entry: |
+      materialNumber: ABC-12345
+      description: Bremsscheibe vorne links
+      unit: mm
+      valueRange:
+        min: 20
+        max: 35
+      category: Bremsanlage
+  assert:
+    - type: javascript
+      value: |
+        const p = JSON.parse(output);
+        return p.isValid === true;
+    - type: javascript
+      value: |
+        const p = JSON.parse(output);
+        return p.errors.length === 0;

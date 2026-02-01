@@ -1,0 +1,52 @@
+{
+  "name": "veeds-llmops",
+  "version": "1.0.0",
+  "description": "VEEDS Proofreader - LLMOps Stack (Langfuse + Promptfoo + k6)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "./setup.sh",
+    "up": "docker compose up -d",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f",
+    "logs:web": "docker compose logs -f langfuse-web",
+    "logs:worker": "docker compose logs -f langfuse-worker",
+    "status": "docker compose ps",
+    "health": "./scripts/health-check.sh",
+    "seed": "npx tsx scripts/seed-langfuse.ts",
+    "eval:generate": "npx tsx eval/generate-promptfoo-tests.ts",
+    "eval": "npm run eval:generate && npx promptfoo eval -c promptfooconfig.yaml",
+    "eval:view": "npx promptfoo view",
+    "eval:assert": "npm run eval:generate && npx promptfoo eval -c promptfooconfig.yaml --assert",
+    "eval:compare": "npm run eval:generate && npx promptfoo eval -c promptfooconfig.yaml --output eval/results/latest.html && open eval/results/latest.html",
+    "eval:push": "npx tsx scripts/push-scores-to-langfuse.ts eval/results/latest.json",
+    "eval:full": "npm run eval && npm run eval:push",
+    "dataset:upload": "npx tsx eval/upload-dataset-to-langfuse.ts",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
+    "test:load": "k6 run tests/load/graphql-test.js",
+    "test:load:smoke": "k6 run --vus 1 --duration 10s tests/load/graphql-test.js",
+    "test:load:stress": "k6 run -e K6_SCENARIO=stress tests/load/graphql-test.js",
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.600.0",
+    "langfuse": "^3.0.0",
+    "pino": "^10.3.0",
+    "pino-pretty": "^13.1.3"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "@types/pino": "^7.0.4",
+    "dotenv-cli": "^11.0.0",
+    "fast-check": "^4.5.3",
+    "jest": "^30.2.0",
+    "promptfoo": "^0.120.20",
+    "ts-jest": "^29.4.6",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
