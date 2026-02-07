@@ -30,6 +30,7 @@
     "eval:deepeval:view": "docker compose --profile deepeval-ui up deepeval-ui",
     "eval:full": "npm run eval && npm run eval:push",
     "automation:score": "docker compose --profile deepeval run --rm deepeval python scripts/auto-scorer.py",
+    "prompt:sync": "docker compose --profile deepeval run --rm deepeval python scripts/prompt-sync.py",
     "dataset:upload": "npx tsx eval/upload-dataset-to-langfuse.ts",
     "dataset:export": "npx tsx scripts/export-production-traces.ts",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
