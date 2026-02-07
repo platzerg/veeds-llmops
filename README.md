@@ -663,26 +663,6 @@ Hier ist eine tiefergehende Aufschlüsselung der Verzeichnisse und ihrer Untermo
 
 ---
 
-## 🔬 Tier 2: DeepEval Integration
-
-Für fortgeschrittene Szenarien nutzen wir **DeepEval**, um die Qualität unserer LLM-Antworten mit wissenschaftlichen Metriken zu messen.
-
-### **Kern-Features**
-- **Faithfulness**: Misst, ob die Antwort des LLM auf den bereitgestellten Fakten (Retrieved Context) basiert.
-- **Answer Relevancy**: Misst mathematisch, wie gut die Antwort die ursprüngliche Frage beantwortet.
-- **Synthetische Daten**: Generiert automatisch hunderte komplexe Test-Cases (Goldens).
-
-### **Befehle**
-- `npm run eval:deepeval`: Führt die Python-basierten Metrik-Tests via Docker aus.
-- `npm run eval:deepeval:generate`: Erzeugt neue synthetische Test-Fälle für dein Modell.
-- `npm run eval:deepeval:view`: Startet das DeepEval Dashboard auf Port 8080.
-
----
-
----
-
----
-
 ---
 
 ## 🔄 Detaillierter LLMOps Workflow & Deep Dive
@@ -729,79 +709,71 @@ Ein spezialisiertes Test-Toolkit, das über normale Unit-Tests hinausgeht.
 
 ---
 
+## 🔬 Tier 2+: Advanced DeepEval & Automation
+
+Für ultimative Kontrolle und Automatisierung bietet der Stack fortgeschrittene Python-basierte Werkzeuge:
+
+### **1. DeepEval Arena (Befehl: `npm run eval:deepeval:arena`)**
+Ermöglicht den **A/B Vergleich** von zwei verschiedenen Prompts oder Modellen.
+*   **Workflow**: Schickt denselben Input an beide Varianten.
+*   **Judge**: Claude 3.5 bewertet beide Antworten mathematisch auf Relevanz.
+*   **Visualisierung**: Die Ergebnisse werden als direkt genutzte Scores nach Langfuse übertragen.
+
+### **2. Langfuse Auto-Scorer (Befehl: `npm run automation:score`)**
+Ein Hintergrund-Skript, das Traces automatisch "benotet".
+*   **Funktion**: Scannt Traces auf Fehlermuster (z.B. `Valid: false`).
+*   **Output**: Setzt automatisiert Scores (0 für Fehler, 1 für Erfolg) in Langfuse.
+*   **Vorteil**: Massive Zeitersparnis beim manuellen Review von tausenden Traces.
+
+### **3. Prompt-as-Code Sync (Befehl: `npm run prompt:sync`)**
+Hält dein Repository und dein Langfuse-Dashboard synchron.
+*   **Funktion**: Pusht den Inhalt von `eval/prompt.txt` als neue Version in die Langfuse Prompt Registry.
+*   **Vorteil**: Ermöglicht echtes Version-Control für LLM-Prompts in Git.
+
+---
+
 ## 🛠️ Detaillierte NPM Skript-Referenz
 
-| Befehl | Aktion / Kommando | Technischer Zweck & Workflow |
-| :--- | :--- | :--- |
-| **Setup** | | |
-| `npm run setup` | `./setup.sh` | Generiert `.env` Secrets und konfiguriert das lokale Environment. |
-| `npm run up` | `docker-compose up -d` | Startet den kompletten Langfuse-Stack inkl. ClickHouse & PostgreSQL. |
-| `npm run seed` | `scripts/seed-langfuse.ts` | Erstellt Initial-Daten (Org/Projekt) in einer frischen Langfuse-DB. |
-| **Development** | | |
-| `npm run dev` | `tsx watch src/index.ts` | Live-Entwicklung des Proofreaders mit Hot-Reload. |
-| `npm run demo` | `scripts/demo-proofreader.ts` | **E2E Demo**: Verarbeitet ein YAML mit PII-Daten und zeigt Cost/Traces. |
-| `npm run build` | `tsc` | Erzeugt die JavaScript-Dateien im `dist/` Ordner für TS-Support. |
-| **Quality (Eval)** | | |
-| `npm run eval` | `promptfoo eval` | Führt die Haupt-Evaluation gegen das Golden Dataset aus. |
-| `npm run eval:view`| `promptfoo view` | Startet das Web-UI (Port 3210) zum Vergleich der Ergebnisse. |
-| `npm run generate` | `promptfoo generate` | Erzeugt synthetische Testfälle basierend auf deinen Prompt-Specs. |
-| `npm run eval:push` | `scripts/push-scores.ts` | Überträgt Promptfoo-Ergebnisse als "Scores" zu den Traces in Langfuse. |
-| **Sicherheit** | | |
-| `npm run redteam` | `promptfoo redteam run` | Automatische Suche nach Jailbreaks und PII-Leaks (Adversarial). |
-| `npm run test:verify`| `verify-security.ts` | **Checkliste**: Validiert Injection-Schutz und Anonymisierungs-Erfolg. |
-| **Monitoring** | | |
-| `npm run test:load` | `k6 run ...` | Performance-Check: Simuliert viele User, um Latenzen zu messen. |
-| `npm run dataset:export`| `export-traces.ts` | Zieht schlechte Produktions-Traces als neue Lern-Daten herunter. |
+| Bereich | Befehl | Aktion / Kommando | Technischer Zweck |
+| :--- | :--- | :--- | :--- |
+| **Setup** | `npm run setup` | `./setup.sh` | Secrets & .env Initialisierung. |
+| | `npm run up` | `docker up -d` | Startet den kompletten AI Stack. |
+| **Dev** | `npm run demo` | `demo-proofreader.ts` | E2E Durchlauf (PII -> Bedrock -> Cost). |
+| **Eval** | `npm run eval` | `promptfoo eval` | Logische Validierung (Tier 1). |
+| | `npm run eval:deepeval` | `deepeval run` | Wissenschaftliche Metriken (Tier 2). |
+| | `npm run eval:deepeval:arena`| `arena_battle.py` | **A/B Testing** zweier Prompts. |
+| **Automation** | `npm run prompt:sync` | `prompt-sync.py` | **Git-to-Langfuse** Prompt Sync. |
+| | `npm run automation:score` | `auto-scorer.py` | **Automatisches Grading** in Langfuse. |
+| **Security** | `npm run redteam` | `promptfoo redteam` | Automatisierte Sicherheits-Angriffe. |
 
 ---
 
 ## 📖 Glossar & Fachbegriffe
 
-*   **Golden Dataset**: Ein handverlesener Satz von Testfällen (Ground Truth), der als Maßstab für die Qualität dient.
-*   **PII (Personally Identifiable Information)**: Sensible Daten wie Namen oder E-Mails, die vor LLMs geschützt werden müssen.
-*   **Trace-ID**: Eine eindeutige Nummer, die ein Event vom API-Call bis zum Datenbank-Log traceable macht.
-*   **LLM-as-a-Judge**: Ein Prozess, bei dem ein starkes Modell (z.B. Claude 3.5) die Antwort eines anderen Modells bewertet.
-*   **Red Teaming**: Die gezielte Simulation von Angriffen, um Schwachstellen im Modell oder in der Pipeline zu finden.
-
----
-
-## 🔄 LLMOps Lifecycle & Workflow Diagramm
-
-```mermaid
-graph TD
-    subgraph "Design & Prep"
-    A["Prompt in Langfuse (UI)"] --> B["npm run setup:prompts (Git Sync)"]
-    end
-    
-    subgraph "Execution Pipeline"
-    B --> C["PII Filter (Presidio)"]
-    C --> D["Bedrock Call (Claude 3.5)"]
-    D --> E["Cost Calculation"]
-    E --> F["Langfuse Tracing (ID-Link)"]
-    end
-    
-    subgraph "QA & Loop"
-    F --> G["npm run eval (Quality check)"]
-    G --> H["npm run test:verify (Security check)"]
-    H --> I["npm run dataset:export (Feedback Loop)"]
-    I --> A
-    end
-```
+*   **Golden Dataset**: Ein handverlesener Satz von Testfällen (Ground Truth).
+*   **PII (Privacy)**: Schutz personenbezogener Daten vor dem Cloud-Versand.
+*   **LLM-as-a-Judge**: Ein starkes Modell bewertet die Antwort eines anderen Modells.
+*   **Auto-Scoring**: Automatische Qualitäts-Bewertung basierend auf Log-Patterns.
 
 ---
 
 ## 🚀 Best-Practice Workflows
 
-### **Szenario A: Du möchtest den Prompt ändern**
-1.  Ändere `eval/prompt.txt`.
-2.  Führe `npm run setup:prompts` aus (synchronisiert mit Langfuse).
-3.  Führe `npm run eval` aus, um sicherzustellen, dass keine Regressionen im `golden_dataset` auftreten.
-4.  Prüfe die Ergebnisse in `npm run eval:view`.
+### **Szenario A: Prompt-Änderung & Synchronisierung**
+1.  Status-Quo in Langfuse prüfen.
+2.  Lokalen Prompt in `eval/prompt.txt` editieren.
+3.  `npm run prompt:sync` ausführen (neue Version in Langfuse).
+4.  `npm run eval` zur Absicherung der Regressionen.
 
-### **Szenario B: Du vermutest eine Sicherheitslücke**
-1.  Füge den "Angriffs-String" zu `scripts/verify-security.ts` hinzu.
-2.  Führe `npm run test:verify` aus.
-3.  Passe den Prompt oder den `PII-Filter` an, bis der Test besteht.
+### **Szenario B: Sicherheitslücke schließen**
+1.  Problem in `scripts/verify-security.ts` als neuen Test-Case ergänzen.
+2.  Lücke reproduzieren (Test schlägt fehl).
+3.  Prompt verbessern, bis `npm run test:verify` besteht.
+
+### **Szenario C: A/B Testing (Arena Battle)**
+1.  Zwei Prompt-Ideen in `eval/deepeval/arena_battle.py` definieren.
+2.  `npm run eval:deepeval:arena` ausführen.
+3.  In Langfuse die Scores vergleichen und den "Winner" zum Standard machen.
 
 ---
 © 2026 VEEDS CORP - Advanced LLMOps Infrastructure
