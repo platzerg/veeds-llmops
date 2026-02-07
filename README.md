@@ -18,7 +18,10 @@ docker compose ps
 git status
 ```
 
-docker-compose --profile llm-eval-observability-toolkit up promptfoo-ui
+```bash
+# Gesamten Stack starten
+npm run up
+```
 
 ### **🔧 Schritt 1: Setup und Dependencies**
 
@@ -138,6 +141,21 @@ npx tsx scripts/ci-test-pipeline.ts
 npx tsx scripts/ci-test-pipeline.ts --load-tests
 ```
 
+### **🧪 Schritt 7: Wissenschaftliche Evaluation (DeepEval)**
+
+Für fortgeschrittene Szenarien nutzen wir DeepEval, um Halluzinationen und Relevanz mathematisch zu prüfen.
+
+```bash
+# DeepEval Dashboard starten
+npm run eval:deepeval:view # Port 8080
+
+# Metrik-Tests via Docker ausführen
+npm run eval:deepeval
+
+# Synthetische Testdaten generieren (KI-basiert)
+npm run eval:deepeval:generate
+```
+
 ## 🎯 Was Sie alles testen können
 
 ### **1. 🧠 LLM-Qualität testen**
@@ -203,14 +221,18 @@ diff eval/validation-report-old.json eval/validation-report.json
 npm run eval:compare
 ```
 
-### **4. 🎛️ A/B Testing**
+### **4. 🎛️ A/B Testing & Arena Battles**
 
-#### **Prompt-Versionen vergleichen**
+#### **Statik (Promptfoo)**
 ```bash
-# 1. Erstelle Prompt v2 in Langfuse
-# 2. Ändere promptfooconfig.yaml
-# 3. Vergleiche
+# Verschiedene Prompt-Iterationen in der UI vergleichen
 npm run eval:compare
+```
+
+#### **Dynamik (DeepEval Arena)**
+```bash
+# Arena-Battle zwischen zwei Prompts (Claude 3.5 als Richter)
+npm run eval:deepeval:arena
 ```
 
 ### **5. 📈 Monitoring & Observability**
@@ -306,15 +328,18 @@ cat eval/validation-report.json | jq '.results[] | select(.passed == false)'
 
 ### **Verfügbare Befehle**
 ```bash
-# Prompts automatisch erstellen/aktualisieren
+# Prompts automatisch erstellen/aktualisieren (Initial Setup)
 npm run setup:prompts
 
 # Verifikation der erstellten Prompts
 npm run setup:prompts:verify
 
+# Fortlaufender Sync (Git-to-Langfuse)
+npm run prompt:sync
+
 # Setup + Verifikation in einem Schritt
 npm run setup:prompts:all
-
+```
 # Manuell mit erweiterten Optionen
 npx tsx scripts/setup-langfuse-http.ts setup
 npx tsx scripts/setup-langfuse-http.ts verify
@@ -461,7 +486,9 @@ npx tsx src/index.ts
 # → Check Traces in http://localhost:3000
 ```
 
-## Evaluation
+---
+
+## 🔬 Evaluation & Testing Deep Dive
 
 ### Automatic Test Data Generation
 
