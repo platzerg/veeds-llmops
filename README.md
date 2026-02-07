@@ -656,6 +656,29 @@ Hier ist eine tiefergehende Aufschlüsselung der Verzeichnisse und ihrer Untermo
 *   **`schemas/`**: JSON- und JS-Schemas zur formalen Validierung von Fahrzeugdaten und LLM-Outputs.
 *   **`datasets/`**: Verschiedene YAML- und CSV-Testdatenquellen für großflächige Evaluationen.
 
+### **7. `eval/deepeval/` (Tier 2 Metrics)**
+*   **`bedrock_model.py`**: Python-Adapter für AWS Bedrock (Claude 3.5).
+*   **`test_proofreader.py`**: Definition der Faithfulness- und Relevancy-Tests.
+*   **`generate_synthetic_data.py`**: KI-gestützte Generierung von Test-Cases.
+
+---
+
+## 🔬 Tier 2: DeepEval Integration
+
+Für fortgeschrittene Szenarien nutzen wir **DeepEval**, um die Qualität unserer LLM-Antworten mit wissenschaftlichen Metriken zu messen.
+
+### **Kern-Features**
+- **Faithfulness**: Misst, ob die Antwort des LLM auf den bereitgestellten Fakten (Retrieved Context) basiert.
+- **Answer Relevancy**: Misst mathematisch, wie gut die Antwort die ursprüngliche Frage beantwortet.
+- **Synthetische Daten**: Generiert automatisch hunderte komplexe Test-Cases (Goldens).
+
+### **Befehle**
+- `npm run eval:deepeval`: Führt die Python-basierten Metrik-Tests via Docker aus.
+- `npm run eval:deepeval:generate`: Erzeugt neue synthetische Test-Fälle für dein Modell.
+- `npm run eval:deepeval:view`: Startet das DeepEval Dashboard auf Port 8080.
+
+---
+
 ---
 
 ---

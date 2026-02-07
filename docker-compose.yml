@@ -514,10 +514,52 @@ services:
     image: mcr.microsoft.com/presidio-anonymizer:latest
     container_name: presidio-anonymizer
     ports:
-      - "5002:3000"
+      - "5003:3000"
     networks:
       - aiqa
     restart: unless-stopped
+
+  # ==========================================================================
+  # DeepEval - Advanced Metric-based Evaluation
+  # ==========================================================================
+  deepeval:
+    image: python:3.10-slim
+    container_name: deepeval-runner
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ~/.aws:/root/.aws:ro
+    environment:
+      - AWS_REGION=eu-central-1
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    command: >
+      sh -c "pip install -r eval/deepeval/requirements.txt && 
+             export PYTHONPATH=$PYTHONPATH:/app/eval/deepeval &&
+             deepeval test run eval/deepeval/test_proofreader.py"
+    networks:
+      - aiqa
+    profiles:
+      - deepeval
+
+  deepeval-ui:
+    image: python:3.10-slim
+    container_name: deepeval-ui
+    working_dir: /app
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    environment:
+      - DEEPEVAL_PORT=8080
+    command: >
+      sh -c "pip install deepeval && deepeval dashboard"
+    networks:
+      - aiqa
+    profiles:
+      - deepeval-ui
 
 # =============================================================================
 # Volumes
