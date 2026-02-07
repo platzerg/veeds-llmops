@@ -1,0 +1,69 @@
+# =============================================================================
+# AWS Distro for OpenTelemetry (ADOT) Collector Configuration
+# =============================================================================
+# Empfängt OTLP Traces und exportiert zu:
+# - AWS X-Ray (Cloud)
+# - Jaeger (lokal, optional)
+# =============================================================================
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 50
+  
+  # Resource Processor: Setzt Resource-Attribute
+  resource:
+    attributes:
+      - key: service.name
+        value: promptfoo-vehicle-info
+        action: upsert
+
+  # Attributes Processor: Modifiziert Span-Attribute für X-Ray
+  # X-Ray verwendet aws.service oder rpc.service als Segment-Name
+  # Wir löschen diese, damit service.name verwendet wird
+  attributes:
+    actions:
+      - key: aws.service
+        action: delete
+      - key: rpc.service
+        action: delete
+
+exporters:
+  # AWS X-Ray Exporter
+  awsxray:
+    region: eu-central-1
+    # indexed_attributes: Attribute die in X-Ray durchsuchbar sind
+    indexed_attributes:
+      - gen_ai.request.model
+      - gen_ai.system
+      - aws.region
+    # Verwendet automatisch AWS Credentials aus Environment oder ~/.aws
+
+  # Jaeger Exporter (für lokales Debugging)
+  otlp/jaeger:
+    endpoint: jaeger-backend:4317
+    tls:
+      insecure: true
+
+  # Debug Logging
+  logging:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [attributes, resource, batch]
+      exporters: [awsxray, otlp/jaeger, logging]
+
+  telemetry:
+    logs:
+      level: info

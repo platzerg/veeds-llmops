@@ -8,15 +8,19 @@
 
 description: "VEEDS Proofreader Evaluation"
 
+sharing:
+  apiBaseUrl: http://localhost:3210
+  appBaseUrl: http://localhost:3210
+
 # ---------------------------------------------------------------------------
 # Prompts: Load from Langfuse or use local fallback
 # ---------------------------------------------------------------------------
 prompts:
   # Option A: Load from Langfuse (requires LANGFUSE_* env vars)
-  # - "langfuse://veeds-proofreader@production"
+  - "langfuse://veeds-proofreader@production"
 
   # Option B: Local prompt file (always works)
-  - file://eval/prompt.txt
+  # - file://eval/prompt.txt
 
 # ---------------------------------------------------------------------------
 # Providers: AWS Bedrock via Claude

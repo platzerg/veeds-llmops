@@ -1,0 +1,102 @@
+# =============================================================================
+# Promptfoo Modular Configuration
+# Zeigt wie man externe Dateien für Prompts, Tests, Vars und Transforms nutzt
+# =============================================================================
+#
+# Run: npx promptfoo eval --config promptfooconfig-modular.yaml
+
+description: "Modular Config - External Files Demo"
+
+# =============================================================================
+# PROVIDERS
+# =============================================================================
+providers:
+  - id: bedrock:us.anthropic.claude-3-5-sonnet-20241022-v2:0
+    label: "Claude 3.5 Sonnet"
+    config:
+      region: us-east-1
+      temperature: 0.3
+
+# =============================================================================
+# PROMPTS - Aus externen Dateien laden
+# =============================================================================
+prompts:
+  # Prompt aus .txt Datei
+  - file://prompts/vehicle-assistant.txt
+  
+  # JSON API Prompt
+  - file://prompts/json-api.txt
+
+# =============================================================================
+# DEFAULT TEST - Mit externem Transform
+# =============================================================================
+defaultTest:
+  vars:
+    vehicle_type: "LKW"
+  options:
+    # Transform aus externer JS-Datei
+    transform: file://scripts/transform.js
+  assert:
+    - type: not-icontains
+      value: "als KI"
+
+# =============================================================================
+# TESTS - Aus externen Dateien importieren
+# =============================================================================
+tests:
+  # Importiere Tests aus YAML-Datei
+  - file://datasets/tests-external.yaml
+
+  # Inline Tests mit dynamischen Variablen
+  - description: "Dynamischer Kontext"
+    vars:
+      query: "Was ist eine VIN?"
+      # Dynamische Variable aus JS-Datei
+      context: file://scripts/dynamic-vars.js
+    assert:
+      - type: icontains
+        value: "fahrzeug"
+
+  # Test mit Custom JS Assertion
+  - description: "VIN Validierung"
+    vars:
+      query: "Gib mir ein Beispiel für eine MAN VIN."
+    assert:
+      - type: javascript
+        value: |
+          // Inline JS oder aus Datei
+          const vinPattern = /WMA[A-HJ-NPR-Z0-9]{14}/;
+          return vinPattern.test(output);
+
+  # Test mit JSON Transform
+  - description: "JSON Extraktion"
+    vars:
+      query: "Gib die VIN-Länge als JSON."
+    options:
+      # Spezifische Funktion aus Transform-Datei
+      transform: file://scripts/transform.js:extractJson
+    assert:
+      - type: is-json
+
+  # Test mit mehreren Variablen-Kombinationen
+  - description: "Fahrzeugtyp Kombinationen"
+    vars:
+      # Array von Werten = mehrere Test-Durchläufe
+      vehicle_type:
+        - "TGX"
+        - "TGS"
+        - "eTGM"
+      query: "Beschreibe den MAN {{vehicle_type}}."
+    assert:
+      - type: icontains
+        value: "{{vehicle_type}}"
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+outputPath: ./eval-results-modular.json
+writeLatestResults: true
+
+sharing:
+  apiBaseUrl: http://localhost:3210
+  appBaseUrl: http://localhost:3210

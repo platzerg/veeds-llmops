@@ -1,0 +1,40 @@
+tests:
+  - vars:
+      user_query: Zeige alle Fahrzeuge mit VIN = WMA13FZZ3RM933559
+  - vars:
+      user_query: Finde Fahrzeuge mit VIN, die mit WMA13 beginnt
+  - vars:
+      user_query: Gib alle Trucks mit maVersion 19 und minorMaVersion 06 aus
+  - vars:
+      user_query: Liste alle Busse mit engineType = D2676LFAZ
+  - vars:
+      user_query: >-
+        Suche Fahrzeuge, bei denen engineType einer von D2676LFAZ oder D2676LFAA
+        ist
+  - vars:
+      user_query: >-
+        Finde Fahrzeuge mit changeDate zwischen 2023-01-01T00:00:00Z und
+        2023-12-31T23:59:59Z
+  - vars:
+      user_query: Alle Fahrzeuge, bei denen engineNumber existiert
+  - vars:
+      user_query: Alle Fahrzeuge ohne custspecVersion (exists = false)
+  - vars:
+      user_query: Suche Trucks mit pp 20/23 oder 21/24
+  - vars:
+      user_query: >-
+        Finde Fahrzeuge mit maVersion >= 20 und vdfGenerationDate >
+        2024-07-01T00:00:00Z
+  - vars:
+      user_query: Zeige Fahrzeuge, die die Kategorie TESTDATEN enthalten
+  - vars:
+      user_query: Zeige Fahrzeuge, die nicht zur Familie Bus gehören
+  - vars:
+      user_query: Fahrzeuge mit engineNumber = 21267130196718 und VIN wie WMA*FZZ*
+  - vars:
+      user_query: Fahrzeuge mit vehicleId = 13F0494 oder VIN = WMA13FZZ3RM933559
+  - vars:
+      user_query: >-
+        Komplex: (family = Truck AND (maVersion = 20 OR maVersion = 21) AND
+        udfVersion in [015, 016]) OR (family = Bus AND engineType wildcard
+        D2676LFA*)

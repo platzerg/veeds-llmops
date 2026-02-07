@@ -1,0 +1,10 @@
+# =============================================================================
+# Promptfoo - ASTRO GraphQL Auto-Generated Tests
+# =============================================================================
+# Automatisch generierte Testfälle mit promptfoo generate dataset
+#
+# Run: npx promptfoo eval --config promptfooconfig-astro-generated.yaml
+# View: npx promptfoo view --port 3210
+# =============================================================================
+
+description: "ASTRO GraphQL - Auto-Generated Test

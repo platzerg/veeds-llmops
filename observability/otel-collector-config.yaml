@@ -1,0 +1,100 @@
+# =============================================================================
+# OpenTelemetry Collector Configuration
+# =============================================================================
+# Der OTEL Collector empfängt, verarbeitet und exportiert Telemetrie-Daten
+# Docs: https://opentelemetry.io/docs/collector/configuration/
+
+receivers:
+  # OTLP Receiver - empfängt Traces von Promptfoo
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost:*"
+            - "http://127.0.0.1:*"
+
+processors:
+  # Batch Processor - gruppiert Spans für effizienteren Export
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Memory Limiter - verhindert OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Resource Processor - fügt Metadaten hinzu
+  resource:
+    attributes:
+      - key: service.namespace
+        value: promptfoo-llm-testing
+        action: upsert
+      - key: deployment.environment
+        value: development
+        action: upsert
+
+  # Attributes Processor - modifiziert Span-Attribute
+  attributes:
+    actions:
+      - key: promptfoo.version
+        value: "latest"
+        action: upsert
+
+exporters:
+  # Jaeger Exporter
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Tempo Exporter (wenn Tempo verwendet wird)
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Debug Exporter - für Entwicklung
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # Logging Exporter - schreibt Traces ins Log
+  logging:
+    loglevel: info
+
+extensions:
+  # Health Check Extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # Performance Profiler
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # zPages für Debugging
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  
+  pipelines:
+    # Traces Pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource, attributes]
+      exporters: [otlp/jaeger, logging]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888

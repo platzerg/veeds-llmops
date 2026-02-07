@@ -1,0 +1,198 @@
+# =============================================================================
+# Promptfoo - Scenarios (Multi-Turn Conversations)
+# =============================================================================
+# Dokumentation: https://www.promptfoo.dev/docs/configuration/scenarios/
+#
+# Run: npx promptfoo eval --config promptfooconfig-scenarios.yaml
+# View: npx promptfoo view --port 3210
+
+description: "Vehicle Information - Multi-Turn Conversation Testing"
+
+# =============================================================================
+# PROVIDERS - Mehrere Modelle zum Vergleichen
+# =============================================================================
+providers:
+  - id: bedrock:us.anthropic.claude-3-5-sonnet-20241022-v2:0
+    label: "Claude 3.5 Sonnet"
+    config:
+      region: us-east-1
+      temperature: 0.3
+      max_tokens: 1024
+
+  - id: bedrock:us.anthropic.claude-3-haiku-20240307-v1:0
+    label: "Claude 3 Haiku (Fast)"
+    config:
+      region: us-east-1
+      temperature: 0.3
+      max_tokens: 1024
+
+# =============================================================================
+# SCENARIOS - Multi-Turn Konversationen
+# =============================================================================
+# Scenarios ermöglichen das Testen von mehrstufigen Gesprächen
+# Jedes Scenario definiert eine Konversationshistorie
+
+scenarios:
+  # ---------------------------------------------------------------------------
+  # Scenario 1: VIN Erklärung mit Nachfragen
+  # ---------------------------------------------------------------------------
+  - config:
+      - role: system
+        content: |
+          Du bist ein hilfreicher Assistent für Fahrzeuginformationen bei MAN Truck & Bus.
+          Antworte präzise, auf Deutsch und im professionellen Ton.
+      - role: user
+        content: "Was ist eine VIN?"
+      - role: assistant
+        content: "Eine VIN (Vehicle Identification Number) ist eine eindeutige 17-stellige Fahrzeug-Identifikationsnummer."
+      - role: user
+        content: "{{followup}}"
+    tests:
+      - vars:
+          followup: "Wo finde ich die VIN an meinem MAN LKW?"
+        assert:
+          - type: icontains
+            value: "rahmen"
+          - type: llm-rubric
+            value: "Die Antwort nennt mindestens 2 Positionen wo die VIN am Fahrzeug zu finden ist."
+
+      - vars:
+          followup: "Kann ich anhand der VIN das Baujahr erkennen?"
+        assert:
+          - type: icontains
+            value: "10"
+          - type: llm-rubric
+            value: "Die Antwort erklärt, dass das Baujahr an Position 10 der VIN codiert ist."
+
+      - vars:
+          followup: "Was bedeuten die ersten 3 Zeichen?"
+        assert:
+          - type: icontains
+            value: "WMI"
+          - type: llm-rubric
+            value: "Die Antwort erklärt WMI als World Manufacturer Identifier."
+
+  # ---------------------------------------------------------------------------
+  # Scenario 2: Technische Beratung - Elektro-LKW
+  # ---------------------------------------------------------------------------
+  - config:
+      - role: system
+        content: |
+          Du bist ein technischer Experte für LKW-Fahrzeuginformationen bei MAN.
+          Erkläre technische Konzepte verständlich und nenne relevante Spezifikationen.
+      - role: user
+        content: "Ich interessiere mich für Elektro-LKWs von MAN."
+      - role: assistant
+        content: "MAN bietet verschiedene Elektro-LKW Modelle an, darunter den eTGM, eTGS und eTGX."
+      - role: user
+        content: "{{question}}"
+    tests:
+      - vars:
+          question: "Welche Reichweite hat der eTGX?"
+        assert:
+          - type: icontains-any
+            value:
+              - "km"
+              - "kilometer"
+          - type: llm-rubric
+            value: "Die Antwort nennt eine konkrete Reichweite in Kilometern."
+
+      - vars:
+          question: "Wie lange dauert das Laden?"
+        assert:
+          - type: icontains-any
+            value:
+              - "stunde"
+              - "minuten"
+              - "kW"
+          - type: llm-rubric
+            value: "Die Antwort nennt Ladezeiten oder Ladeleistung."
+
+      - vars:
+          question: "Ist der eTGX für Fernverkehr geeignet?"
+        assert:
+          - type: llm-rubric
+            value: "Die Antwort diskutiert Vor- und Nachteile für den Fernverkehr."
+
+  # ---------------------------------------------------------------------------
+  # Scenario 3: Problemlösung - Fehlerbehebung
+  # ---------------------------------------------------------------------------
+  - config:
+      - role: system
+        content: |
+          Du bist ein Service-Berater für MAN Truck & Bus.
+          Hilf bei technischen Fragen und Problemen.
+      - role: user
+        content: "Mein MAN TGX zeigt eine Warnleuchte."
+      - role: assistant
+        content: "Welche Warnleuchte wird angezeigt? Können Sie die Farbe und das Symbol beschreiben?"
+      - role: user
+        content: "{{problem}}"
+    tests:
+      - vars:
+          problem: "Eine gelbe Motorleuchte"
+        assert:
+          - type: llm-rubric
+            value: "Die Antwort gibt Hinweise zur gelben Motorwarnleuchte und empfiehlt ggf. einen Werkstattbesuch."
+          - type: not-icontains
+            value: "sofort anhalten"
+
+      - vars:
+          problem: "Eine rote Öldruckwarnung"
+        assert:
+          - type: icontains-any
+            value:
+              - "anhalten"
+              - "stoppen"
+              - "motor"
+          - type: llm-rubric
+            value: "Die Antwort warnt vor dem Weiterfahren bei roter Öldruckwarnung."
+
+  # ---------------------------------------------------------------------------
+  # Scenario 4: Kaufberatung
+  # ---------------------------------------------------------------------------
+  - config:
+      - role: system
+        content: |
+          Du bist ein Verkaufsberater für MAN Truck & Bus.
+          Berate Kunden bei der Fahrzeugauswahl.
+      - role: user
+        content: "Ich suche einen LKW für den Verteilerverkehr."
+      - role: assistant
+        content: "Für den Verteilerverkehr empfehle ich die MAN TGL oder TGM Baureihe. Welche Nutzlast benötigen Sie?"
+      - role: user
+        content: "{{requirement}}"
+    tests:
+      - vars:
+          requirement: "Etwa 5 Tonnen Nutzlast"
+        assert:
+          - type: icontains-any
+            value:
+              - "TGL"
+              - "TGM"
+          - type: llm-rubric
+            value: "Die Antwort empfiehlt ein passendes Modell für 5 Tonnen Nutzlast."
+
+      - vars:
+          requirement: "Ich brauche eine Kühlung für Lebensmittel"
+        assert:
+          - type: icontains-any
+            value:
+              - "kühl"
+              - "isotherm"
+              - "aufbau"
+          - type: llm-rubric
+            value: "Die Antwort geht auf Kühlaufbauten oder Kühlfahrzeuge ein."
+
+# =============================================================================
+# EVALUATE OPTIONS
+# =============================================================================
+evaluateOptions:
+  maxConcurrency: 2
+  showProgressBar: true
+  cache: true
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+outputPath: ./scenario-results.json

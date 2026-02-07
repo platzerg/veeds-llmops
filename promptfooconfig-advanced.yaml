@@ -1,0 +1,309 @@
+# =============================================================================
+# Promptfoo Advanced Configuration Examples
+# Basierend auf: https://www.promptfoo.dev/docs/configuration/guide/
+# =============================================================================
+#
+# Run: npx promptfoo eval --config promptfooconfig-advanced.yaml
+# View: npx promptfoo view --port 3210
+
+description: "Advanced Promptfoo Examples - Vehicle Information"
+
+# =============================================================================
+# PROVIDERS - Mehrere Modelle vergleichen
+# =============================================================================
+providers:
+  # Provider 1: Claude 3.5 Sonnet
+  - id: bedrock:us.anthropic.claude-3-5-sonnet-20241022-v2:0
+    label: "Claude 3.5 Sonnet"
+    config:
+      region: us-east-1
+      temperature: 0.3
+      max_tokens: 1024
+
+  # Provider 2: Claude 3 Haiku (schneller, günstiger)
+  - id: bedrock:us.anthropic.claude-3-haiku-20240307-v1:0
+    label: "Claude 3 Haiku"
+    config:
+      region: us-east-1
+      temperature: 0.3
+      max_tokens: 1024
+
+# =============================================================================
+# PROMPTS - Verschiedene Prompt-Varianten
+# =============================================================================
+prompts:
+  # Prompt 1: Standard
+  - label: "Standard"
+    raw: |
+      Du bist ein hilfreicher Assistent für Fahrzeuginformationen bei MAN Truck & Bus.
+      Antworte präzise und auf Deutsch.
+      
+      Frage: {{query}}
+
+  # Prompt 2: Mit Kontext
+  - label: "Mit Kontext"
+    raw: |
+      Du bist ein technischer Experte für {{vehicle_type}} bei MAN Truck & Bus.
+      
+      Kontext: {{context}}
+      
+      Frage: {{query}}
+      
+      Antworte präzise und auf Deutsch.
+
+  # Prompt 3: JSON Output
+  - label: "JSON Output"
+    raw: |
+      Du bist ein Fahrzeuginformations-API. Antworte IMMER im JSON-Format.
+      
+      Frage: {{query}}
+      
+      Antwort (JSON):
+
+# =============================================================================
+# DEFAULT TEST - Gilt für alle Tests
+# =============================================================================
+defaultTest:
+  # Standard-Variablen für alle Tests
+  vars:
+    vehicle_type: "LKW"
+    context: "MAN Truck & Bus ist ein führender europäischer Nutzfahrzeughersteller."
+  
+  # Standard-Assertions für alle Tests
+  assert:
+    # Keine AI-Selbstreferenz
+    - type: not-icontains
+      value: "als KI"
+    - type: not-icontains
+      value: "als künstliche Intelligenz"
+  
+  # Transform: Output bereinigen
+  options:
+    transform: "output.trim()"
+
+# =============================================================================
+# TEST CASES - Mit verschiedenen Features
+# =============================================================================
+tests:
+  # --------------------------------------------------------------------------
+  # Test 1: Einfache Frage mit mehreren Assertions
+  # --------------------------------------------------------------------------
+  - description: "VIN Grundlagen"
+    vars:
+      query: "Was ist eine VIN?"
+    assert:
+      - type: icontains
+        value: "fahrzeug"
+      - type: icontains
+        value: "17"
+      - type: llm-rubric
+        value: "Die Antwort erklärt VIN als Fahrzeug-Identifikationsnummer."
+
+  # --------------------------------------------------------------------------
+  # Test 2: JSON Output Validierung
+  # --------------------------------------------------------------------------
+  - description: "JSON Response"
+    vars:
+      query: "Gib mir die VIN-Struktur als JSON."
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const json = JSON.parse(output);
+          return json.hasOwnProperty('wmi') || json.hasOwnProperty('structure');
+
+  # --------------------------------------------------------------------------
+  # Test 3: Similarity Check
+  # --------------------------------------------------------------------------
+  - description: "Semantische Ähnlichkeit"
+    vars:
+      query: "Was bedeutet WMI?"
+    assert:
+      - type: similar
+        value: "WMI steht für World Manufacturer Identifier und identifiziert den Hersteller."
+        threshold: 0.6
+
+  # --------------------------------------------------------------------------
+  # Test 4: Regex Pattern Matching
+  # --------------------------------------------------------------------------
+  - description: "VIN Beispiel Format"
+    vars:
+      query: "Gib mir ein Beispiel für eine gültige MAN VIN."
+    assert:
+      - type: regex
+        value: "WMA[A-HJ-NPR-Z0-9]{14}"
+
+  # --------------------------------------------------------------------------
+  # Test 5: Multiple Variables (Kombinationen)
+  # --------------------------------------------------------------------------
+  - description: "Fahrzeugtyp-Fragen"
+    vars:
+      vehicle_type:
+        - "TGX"
+        - "TGS"
+        - "TGM"
+      query: "Welche Achskonfigurationen gibt es beim {{vehicle_type}}?"
+    assert:
+      - type: icontains-any
+        value:
+          - "4x2"
+          - "6x2"
+          - "6x4"
+
+  # --------------------------------------------------------------------------
+  # Test 6: Kontext-basierte Frage
+  # --------------------------------------------------------------------------
+  - description: "Mit Kontext"
+    vars:
+      context: |
+        Der MAN eTGM ist ein vollelektrischer Verteiler-LKW.
+        Reichweite: bis zu 200 km.
+        Batteriekapazität: bis zu 264 kWh.
+      query: "Wie weit kann der eTGM fahren?"
+    assert:
+      - type: factuality
+        value: "Der eTGM hat eine Reichweite von bis zu 200 km."
+      - type: contains
+        value: "200"
+
+  # --------------------------------------------------------------------------
+  # Test 7: Latency und Cost Checks
+  # --------------------------------------------------------------------------
+  - description: "Performance Test"
+    vars:
+      query: "Was ist eine VIN? Antworte kurz."
+    assert:
+      - type: latency
+        threshold: 10000  # Max 10 Sekunden
+      - type: icontains
+        value: "fahrzeug"
+
+  # --------------------------------------------------------------------------
+  # Test 8: Negativ-Tests (was NICHT enthalten sein soll)
+  # --------------------------------------------------------------------------
+  - description: "Keine Konkurrenz-Empfehlung"
+    vars:
+      query: "Welcher LKW-Hersteller ist der beste?"
+    assert:
+      - type: not-icontains
+        value: "Daimler ist besser"
+      - type: not-icontains
+        value: "Volvo ist besser"
+      - type: llm-rubric
+        value: "Die Antwort empfiehlt keine Konkurrenzprodukte."
+
+  # --------------------------------------------------------------------------
+  # Test 9: JavaScript Custom Assertion
+  # --------------------------------------------------------------------------
+  - description: "Custom JS Assertion"
+    vars:
+      query: "Wie viele Zeichen hat eine VIN?"
+    assert:
+      - type: javascript
+        value: |
+          // Prüfe ob "17" im Output vorkommt
+          const has17 = output.includes('17');
+          // Prüfe ob es eine Zahl enthält
+          const hasNumber = /\d+/.test(output);
+          return has17 && hasNumber;
+
+  # --------------------------------------------------------------------------
+  # Test 10: Contains-All (alle müssen enthalten sein)
+  # --------------------------------------------------------------------------
+  - description: "Vollständige VIN Erklärung"
+    vars:
+      query: "Erkläre die Struktur einer VIN im Detail."
+    assert:
+      - type: contains-all
+        value:
+          - "WMI"
+          - "17"
+
+  # --------------------------------------------------------------------------
+  # Test 11: Contains-Any (mindestens eines muss enthalten sein)
+  # --------------------------------------------------------------------------
+  - description: "Abgasnorm Erklärung"
+    vars:
+      query: "Was bedeutet Euro 6?"
+    assert:
+      - type: contains-any
+        value:
+          - "Abgas"
+          - "Emission"
+          - "NOx"
+          - "Partikel"
+
+  # --------------------------------------------------------------------------
+  # Test 12: Transform Output vor Assertion
+  # --------------------------------------------------------------------------
+  - description: "JSON Feld extrahieren"
+    vars:
+      query: "Gib die VIN-Länge als JSON zurück."
+    options:
+      transform: |
+        try {
+          const json = JSON.parse(output);
+          return json.length || json.zeichen || output;
+        } catch {
+          return output;
+        }
+    assert:
+      - type: contains
+        value: "17"
+
+# =============================================================================
+# YAML REFERENCES - Wiederverwendbare Blöcke
+# =============================================================================
+# Definiere wiederverwendbare Assertion-Sets
+$defs:
+  standardAssertions: &standardAssertions
+    - type: not-icontains
+      value: "weiß nicht"
+    - type: not-icontains
+      value: "keine Ahnung"
+
+  vinAssertions: &vinAssertions
+    - type: icontains
+      value: "fahrzeug"
+    - type: llm-rubric
+      value: "Die Antwort ist fachlich korrekt."
+
+# =============================================================================
+# SCENARIOS - Gruppierte Test-Szenarien
+# =============================================================================
+scenarios:
+  - description: "VIN Wissen"
+    config:
+      - vars:
+          category: "VIN"
+    tests:
+      - vars:
+          query: "Was ist der WMI-Code für MAN?"
+        assert:
+          - type: icontains
+            value: "WMA"
+          - *standardAssertions
+
+      - vars:
+          query: "An welcher Position steht das Modelljahr in der VIN?"
+        assert:
+          - type: contains
+            value: "10"
+          - *standardAssertions
+
+# =============================================================================
+# OUTPUT CONFIGURATION
+# =============================================================================
+outputPath: ./eval-results-advanced.json
+writeLatestResults: true
+
+evaluateOptions:
+  maxConcurrency: 2
+  showProgressBar: true
+
+# =============================================================================
+# SHARING (für Web UI)
+# =============================================================================
+sharing:
+  apiBaseUrl: http://localhost:3210
+  appBaseUrl: http://localhost:3210

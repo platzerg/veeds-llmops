@@ -1,0 +1,40 @@
+# Variablen für Tests
+# Import mit: vars: file://datasets/vars.yaml
+
+vehicle_types:
+  - TGX
+  - TGS
+  - TGM
+  - TGL
+  - eTGM
+  - eTGX
+
+emission_standards:
+  - Euro 6d
+  - Euro 6e
+  - Euro VI
+
+axle_configs:
+  - "4x2"
+  - "6x2"
+  - "6x4"
+  - "8x4"
+
+man_wmi_codes:
+  - WMA  # MAN Deutschland
+  - XMC  # MAN Polen
+
+context_vin: |
+  Eine VIN (Vehicle Identification Number) ist eine 17-stellige 
+  Fahrzeug-Identifikationsnummer nach ISO 3779.
+  
+  Struktur:
+  - Position 1-3: WMI (World Manufacturer Identifier)
+  - Position 4-9: VDS (Vehicle Descriptor Section)
+  - Position 10-17: VIS (Vehicle Identifier Section)
+
+context_elektro: |
+  MAN bietet folgende Elektro-LKW an:
+  - eTGM: Verteiler-LKW, bis 264 kWh, bis 200 km Reichweite
+  - eTGX: Fernverkehrs-LKW, bis 6 Batteriepacks
+  - eTGS: Bau-LKW (in Entwicklung)

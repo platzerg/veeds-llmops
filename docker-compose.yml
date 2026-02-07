@@ -80,7 +80,7 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/public/health"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3000/api/public/health" ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -157,7 +157,7 @@ services:
     volumes:
       - langfuse_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-langfuse}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-langfuse}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -183,7 +183,7 @@ services:
       - langfuse_clickhouse_data:/var/lib/clickhouse
       - langfuse_clickhouse_logs:/var/log/clickhouse-server
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- 'http://localhost:8123/ping' | grep -q 'Ok'"]
+      test: [ "CMD-SHELL", "wget -qO- 'http://localhost:8123/ping' | grep -q 'Ok'" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -198,16 +198,13 @@ services:
     container_name: langfuse-redis
     restart: unless-stopped
     command: >
-      redis-server
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
-      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+      redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
       - langfuse_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -232,12 +229,295 @@ services:
     volumes:
       - langfuse_minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [ "CMD", "mc", "ready", "local" ]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
       - aiqa
+
+  # ==========================================================================
+  # Promptfoo Web UI - Ergebnisse anzeigen
+  # ==========================================================================
+  promptfoo-ui:
+    image: ghcr.io/promptfoo/promptfoo:latest
+    container_name: promptfoo-ui
+    ports:
+      - '3210:3000'
+    volumes:
+      - ./promptfoo_data:/home/promptfoo/.promptfoo
+      - ./promptfooconfig.yaml:/app/promptfooconfig.yaml:ro
+      - ./eval-results.json:/app/eval-results.json:ro
+    environment:
+      - PROMPTFOO_SHARE_CHUNK_SIZE=10
+    networks:
+      - aiqa
+    depends_on:
+      - jaeger
+    profiles:
+      - llm-eval-observability-toolkit
+
+  # ==========================================================================
+  # Promptfoo Eval Runner - Tests ausführen
+  # ==========================================================================
+  eval:
+    image: ghcr.io/promptfoo/promptfoo:latest
+    container_name: promptfoo-eval
+    working_dir: /app
+    volumes:
+      - ./promptfoo_data:/home/promptfoo/.promptfoo
+      - ./promptfooconfig.yaml:/app/promptfooconfig.yaml:ro
+      - ./datasets:/app/datasets:ro
+      - ./eval-results.json:/app/eval-results.json
+      # AWS Credentials vom Host
+      - ~/.aws:/home/promptfoo/.aws:ro
+    environment:
+      # AWS Bedrock Konfiguration
+      - AWS_REGION=eu-central-1
+      - AWS_DEFAULT_REGION=eu-central-1
+      # Optional: Explizite Credentials (alternativ zu ~/.aws mount)
+      # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+      # Promptfoo Settings
+      - PROMPTFOO_CACHE_ENABLED=true
+      - PROMPTFOO_SHARE_CHUNK_SIZE=10
+    command: [ "promptfoo", "eval", "--config", "/app/promptfooconfig.yaml", "--output", "/app/eval-results.json" ]
+    networks:
+      - aiqa
+    profiles:
+      - eval
+
+  # ==========================================================================
+  # Promptfoo Eval mit Tracing - Tests mit OpenTelemetry
+  # ==========================================================================
+  eval-traced:
+    image: ghcr.io/promptfoo/promptfoo:latest
+    container_name: promptfoo-eval-traced
+    working_dir: /app
+    volumes:
+      - ./promptfoo_data:/home/promptfoo/.promptfoo
+      - ./promptfooconfig-astro-graphql-with-tracing.yaml:/app/promptfooconfig.yaml:ro
+      - ./datasets:/app/datasets:ro
+      - ./eval-results.json:/app/eval-results.json
+      - ~/.aws:/home/promptfoo/.aws:ro
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PROMPTFOO_CACHE_ENABLED=false
+      # OpenTelemetry - Traces an Jaeger senden
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - OTEL_SERVICE_NAME=promptfoo-vehicle-info
+    command: [ "promptfoo", "eval", "--config", "/app/promptfooconfig.yaml", "--output", "/app/eval-results.json" ]
+    networks:
+      - aiqa
+    depends_on:
+      - jaeger
+    profiles:
+      - tracing
+
+  # ==========================================================================
+  # Promptfoo Red Team - Security Tests
+  # ==========================================================================
+  redteam:
+    image: ghcr.io/promptfoo/promptfoo:latest
+    container_name: promptfoo-redteam
+    working_dir: /app
+    volumes:
+      - ./promptfoo_data:/home/promptfoo/.promptfoo
+      - ./promptfooconfig.yaml:/app/promptfooconfig.yaml:ro
+      - ./redteamconfig.yaml:/app/redteamconfig.yaml:ro
+      - ./redteam-results.json:/app/redteam-results.json
+      - ~/.aws:/home/promptfoo/.aws:ro
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - PROMPTFOO_CACHE_ENABLED=true
+    command: [ "promptfoo", "redteam", "run", "--config", "/app/redteamconfig.yaml", "--output", "/app/redteam-results.json" ]
+    networks:
+      - aiqa
+    profiles:
+      - redteam
+
+  # ==========================================================================
+  # Promptfoo Red Team Report - Bericht generieren
+  # ==========================================================================
+  redteam-report:
+    image: ghcr.io/promptfoo/promptfoo:latest
+    container_name: promptfoo-redteam-report
+    working_dir: /app
+    volumes:
+      - ./promptfoo_data:/home/promptfoo/.promptfoo
+      - ./redteam-results.json:/app/redteam-results.json:ro
+    command: [ "promptfoo", "redteam", "report", "--output", "/app/redteam-results.json" ]
+    networks:
+      - aiqa
+    profiles:
+      - report
+
+  # ==========================================================================
+  # JAEGER - Distributed Tracing UI
+  # ==========================================================================
+  # Jaeger All-in-One: Collector, Query, UI
+  # Docs: https://www.jaegertracing.io/docs/
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: jaeger
+    ports:
+      - '16686:16686' # Jaeger UI
+      - '4317:4317' # OTLP gRPC
+      - '4318:4318' # OTLP HTTP
+      - '14268:14268' # Jaeger HTTP Thrift
+      - '6831:6831/udp' # Jaeger Compact Thrift (UDP)
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=info
+    networks:
+      - aiqa
+    profiles:
+      - tracing
+      - llm-eval-observability-toolkit
+    # ==========================================================================
+    # GRAFANA TEMPO - Scalable Distributed Tracing Backend
+    # ==========================================================================
+    # Alternative zu Jaeger für größere Deployments
+    # Docs: https://grafana.com/docs/tempo/latest/
+  tempo:
+    image: grafana/tempo:2.3.1
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - '3200:3200' # Tempo HTTP
+      - '4319:4317' # OTLP gRPC (different port to avoid conflict with Jaeger)
+      - '4320:4318' # OTLP HTTP (different port to avoid conflict with Jaeger)
+    networks:
+      - aiqa
+    profiles:
+      - tempo
+
+  # ==========================================================================
+  # GRAFANA - Visualization & Dashboards
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: grafana
+    ports:
+      - '${GRAFANA_PORT:-8222}:3000'
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      - aiqa
+    depends_on:
+      - tempo
+    profiles:
+      - monitor
+
+  # ==========================================================================
+  # OTEL COLLECTOR - OpenTelemetry Collector (Optional)
+  # ==========================================================================
+  # Für komplexere Setups: Sammelt Traces und leitet sie weiter
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.93.0
+    container_name: otel-collector
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - '4321:4317' # OTLP gRPC
+      - '4322:4318' # OTLP HTTP
+      - '8888:8888' # Prometheus metrics
+      - '8889:8889' # Prometheus exporter
+    networks:
+      - aiqa
+    depends_on:
+      - jaeger
+    profiles:
+      - collector
+      - llm-eval-observability-toolkit
+
+  # ==========================================================================
+  # AWS ADOT COLLECTOR - AWS Distro for OpenTelemetry
+  # ==========================================================================
+  # Exportiert Traces zu AWS X-Ray UND Jaeger gleichzeitig
+  # Docs: https://aws-otel.github.io/docs/getting-started/collector
+  #
+  # WICHTIG: Vor dem Start AWS Credentials exportieren:
+  #   eval $(aws configure export-credentials --profile your-aws-profile --format env)
+  #   docker-compose --profile xray up -d
+  adot-collector:
+    image: amazon/aws-otel-collector:v0.40.0
+    container_name: adot-collector
+    command: [ "--config=/etc/adot-config.yaml" ]
+    volumes:
+      - ./observability/adot-collector-config.yaml:/etc/adot-config.yaml:ro
+    ports:
+      - '4317:4317' # OTLP gRPC (überschreibt Jaeger)
+      - '4318:4318' # OTLP HTTP (überschreibt Jaeger)
+    environment:
+      - AWS_REGION=eu-central-1
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+    networks:
+      - aiqa
+    depends_on:
+      - jaeger-backend
+    profiles:
+      - xray
+
+  # ==========================================================================
+  # JAEGER BACKEND - Nur Query/UI (für ADOT Profile)
+  # ==========================================================================
+  # Wenn ADOT läuft, empfängt Jaeger Traces vom ADOT Collector
+  jaeger-backend:
+    image: jaegertracing/all-in-one:1.54
+    container_name: jaeger-backend
+    ports:
+      - '16686:16686' # Jaeger UI
+      - '14268:14268' # Jaeger HTTP Thrift
+      - '4319:4317' # OTLP gRPC (für ADOT)
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=info
+    networks:
+      - aiqa
+    profiles:
+      - xray
+
+  # ==========================================================================
+  # Microsoft Presidio - PII Protection
+  # ==========================================================================
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    container_name: presidio-analyzer
+    ports:
+      - "5001:3000"
+    environment:
+      # Configure German language support
+      - ANALYZER_CONF_FILE=/app/config/languages-config.yml
+    volumes:
+      - ./infra/presidio/languages-config.yml:/app/config/languages-config.yml:ro
+    networks:
+      - aiqa
+    restart: unless-stopped
+
+  presidio-anonymizer:
+    image: mcr.microsoft.com/presidio-anonymizer:latest
+    container_name: presidio-anonymizer
+    ports:
+      - "5002:3000"
+    networks:
+      - aiqa
+    restart: unless-stopped
 
 # =============================================================================
 # Volumes
@@ -253,6 +533,10 @@ volumes:
     driver: local
   langfuse_minio_data:
     driver: local
+  tempo-data:
+    driver: local
+  grafana-data:
+    driver: local
 
 # =============================================================================
 # Network
@@ -260,3 +544,82 @@ volumes:
 networks:
   aiqa:
     driver: bridge
+
+# ==========================================================================
+# Verwendung:
+# ==========================================================================
+#
+# 1. Web UI starten:
+#    docker-compose up -d promptfoo-ui
+#    → Öffne http://localhost:3210
+#
+# 2. Evaluation ausführen:
+#    docker-compose --profile eval up eval
+#    oder: docker-compose run --rm eval
+#
+# 3. Red Team Tests:
+#    docker-compose --profile redteam up redteam
+#    oder: docker-compose run --rm redteam
+#
+# 4. Alles stoppen:
+#    docker-compose down
+#
+# ==========================================================================
+
+
+# ==========================================================================
+# Verwendung:
+# ==========================================================================
+#
+# 1. Web UI starten:
+#    docker-compose up -d promptfoo-ui
+#    → Öffne http://localhost:3210
+#
+# 2. Evaluation ausführen:
+#    docker-compose --profile eval up eval
+#    oder: docker-compose run --rm eval
+#
+# 3. Red Team Tests:
+#    docker-compose --profile redteam up redteam
+#    oder: docker-compose run --rm redteam
+#
+# 4. MIT TRACING (Jaeger):
+#    docker-compose --profile tracing up -d
+#    → Jaeger UI: http://localhost:16686
+#    → Promptfoo UI: http://localhost:3210
+#
+#    Dann Evaluation mit Tracing:
+#    docker-compose --profile tracing run --rm eval-traced
+#
+# 5. MIT GRAFANA TEMPO (Alternative zu Jaeger):
+#    docker-compose --profile tempo up -d
+#    → Grafana: http://localhost:3000 (admin/admin)
+#    → Tempo: http://localhost:3200
+#
+# 6. MIT OTEL COLLECTOR (Für komplexe Setups):
+#    docker-compose --profile tracing --profile collector up -d
+#    → Collector empfängt auf Port 4321/4322
+#
+# 7. Alles stoppen:
+#    docker-compose --profile tracing down
+#    docker-compose down -v  # inkl. Volumes löschen
+#
+# ==========================================================================
+# Ports Übersicht:
+# ==========================================================================
+#
+# Service          Port    Beschreibung
+# -------          ----    ------------
+# Promptfoo UI     3210    Evaluation Results & Traces
+# Jaeger UI        16686   Distributed Tracing UI
+# Jaeger OTLP      4317    gRPC Receiver
+# Jaeger OTLP      4318    HTTP Receiver
+# Grafana          3000    Dashboards & Visualization
+# Tempo            3200    Tempo HTTP API
+# Tempo OTLP       4319    gRPC Receiver (wenn Jaeger auch läuft)
+# Tempo OTLP       4320    HTTP Receiver (wenn Jaeger auch läuft)
+# OTEL Collector   4321    gRPC Receiver
+# OTEL Collector   4322    HTTP Receiver
+# OTEL Metrics     8888    Prometheus Metrics
+#
+# ==========================================================================

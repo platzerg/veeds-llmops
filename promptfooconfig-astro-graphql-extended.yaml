@@ -1,0 +1,548 @@
+# =============================================================================
+# Promptfoo - ASTRO GraphQL Golden Dataset Evaluation (Extended)
+# =============================================================================
+# Erweiterte Tests für die GraphQL Query Generation
+# Enthält zusätzliche Testfälle für: Wildcards, Date Ranges, OneOf, Nested Filters
+#
+# Run: npx promptfoo eval --config promptfooconfig-astro-graphql-extended.yaml
+# View: npx promptfoo view --port 3210
+# =============================================================================
+
+description: "ASTRO GraphQL Query Generation - Extended Golden Dataset"
+
+# =============================================================================
+# EVALUATION OPTIONS
+# =============================================================================
+evaluateOptions:
+  maxConcurrency: 2
+  delay: 500
+  showProgressBar: true
+  cache: true
+
+# =============================================================================
+# PROVIDER
+# =============================================================================
+providers:
+  - id: bedrock:us.anthropic.claude-3-5-sonnet-20241022-v2:0
+    label: "Claude 3.5 Sonnet"
+    config:
+      region: us-east-1
+      temperature: 0.1
+      max_tokens: 2048
+
+# =============================================================================
+# PROMPTS
+# =============================================================================
+prompts:
+  - id: graphql-generator
+    label: "GraphQL Query Generator"
+    raw: |
+      Du bist ein Experte für die MAN Vehicle Information GraphQL API.
+      Deine Aufgabe ist es, natürlichsprachliche Anfragen in valide GraphQL-Queries zu übersetzen.
+
+      ## GraphQL Schema (vereinfacht)
+
+      ```graphql
+      type Query {
+        vehicleConfigurations(filter: VehicleFilter): VehicleConfigurationResult
+      }
+
+      input VehicleFilter {
+        vehicleId: StringFilter
+        vin: StringFilter
+        engineType: StringFilter
+        engineNumber: StringFilter
+        family: StringFilter
+        maVersion: StringFilter
+        minorMaVersion: StringFilter
+        pp: StringFilter
+        udfVersion: StringFilter
+        changeDate: StringFilter
+        custspecVersion: StringFilter
+        vdfGenerationDate: StringFilter
+        categories: [CategoryFilter]
+        and: [VehicleFilter]
+        or: [VehicleFilter]
+        not: VehicleFilter
+      }
+
+      input StringFilter {
+        eq: String
+        ne: String
+        gt: String
+        gte: String
+        lt: String
+        lte: String
+        wildcard: String
+        oneOf: [String]
+        exists: Boolean
+      }
+
+      input CategoryFilter {
+        name: String!
+        field: FieldFilter
+        items: ItemsFilter
+      }
+
+      input FieldFilter {
+        key: String!
+        value: StringFilter!
+      }
+
+      input ItemsFilter {
+        value: StringFilter
+        position: Int
+        and: [ItemsFilter]
+        or: [ItemsFilter]
+      }
+
+      type VehicleConfigurationResult {
+        configurations: [VehicleConfiguration]
+        cursor: String
+      }
+
+      type VehicleConfiguration {
+        vehicleId: String
+        vin: String
+        engineType: String
+        engineNumber: String
+        family: String
+        maVersion: String
+        minorMaVersion: String
+        pp: String
+        udfVersion: String
+        changeDate: String
+        custspecVersion: String
+        vdfGenerationDate: String
+        categories: [Category]
+      }
+      ```
+
+      ## Regeln
+      1. Gib NUR die GraphQL-Query zurück, ohne Erklärungen
+      2. Verwende die korrekten Filter-Operatoren (eq, gt, gte, lt, lte, wildcard, oneOf, exists, ne)
+      3. Für AND-Verknüpfungen verwende das `and` Array
+      4. Für OR-Verknüpfungen verwende das `or` Array
+      5. Für NOT-Verknüpfungen verwende das `not` Objekt
+      6. Für Kategorie-Filter verwende das `categories` Array
+      7. Gib immer relevante Felder in der Response zurück
+      8. Bei "trucks" oder "LKW" verwende family: { eq: "Truck" }
+      9. Bei "buses" oder "Busse" verwende family: { eq: "Bus" }
+
+      ## Benutzeranfrage
+      {{user_query}}
+
+      ## GraphQL Query
+
+# =============================================================================
+# DEFAULT TEST SETTINGS
+# =============================================================================
+defaultTest:
+  options:
+    provider:
+      id: bedrock:us.anthropic.claude-3-5-sonnet-20241022-v2:0
+      config:
+        region: us-east-1
+
+# =============================================================================
+# TEST CASES - Neue erweiterte Tests
+# =============================================================================
+tests:
+  # ---------------------------------------------------------------------------
+  # WILDCARD PATTERNS (Erweitert)
+  # ---------------------------------------------------------------------------
+  - description: "Q-0051: VIN contains pattern (easy)"
+    vars:
+      user_query: "Show vehicles where vin contains the pattern *FZZ*"
+    assert:
+      - type: icontains
+        value: "vin"
+      - type: icontains
+        value: "wildcard"
+      - type: icontains
+        value: "FZZ"
+
+  - description: "Q-0053: Engine number starts with (easy)"
+    vars:
+      user_query: "Get vehicles where engineNumber starts with 212"
+    assert:
+      - type: icontains
+        value: "engineNumber"
+      - type: icontains
+        value: "wildcard"
+      - type: icontains
+        value: "212"
+
+  - description: "Q-0058: Engine type contains LF (easy)"
+    vars:
+      user_query: "Find vehicles where engineType contains LF"
+    assert:
+      - type: icontains
+        value: "engineType"
+      - type: icontains
+        value: "wildcard"
+      - type: icontains
+        value: "LF"
+
+  # ---------------------------------------------------------------------------
+  # DATE RANGE FILTERS
+  # ---------------------------------------------------------------------------
+  - description: "Q-0052: Date range filter - year 2025 (medium)"
+    vars:
+      user_query: "Find vehicles with changeDate between 2025-01-01 and 2025-12-31"
+    assert:
+      - type: icontains
+        value: "changeDate"
+      - type: icontains
+        value: "gte"
+      - type: icontains
+        value: "lte"
+      - type: icontains
+        value: "2025"
+      - type: llm-rubric
+        value: "Die Query filtert korrekt nach einem Datumsbereich in 2025 mit gte und lte Operatoren."
+
+  - description: "Q-0054: VDF Generation Date in 2024 (medium)"
+    vars:
+      user_query: "Show vehicles where vdfGenerationDate is in 2024"
+    assert:
+      - type: icontains
+        value: "vdfGenerationDate"
+      - type: icontains
+        value: "2024"
+      - type: llm-rubric
+        value: "Die Query filtert nach vdfGenerationDate im Jahr 2024."
+
+  # ---------------------------------------------------------------------------
+  # ONEOF FILTERS (Erweitert)
+  # ---------------------------------------------------------------------------
+  - description: "Q-0055: PP oneOf filter (easy)"
+    vars:
+      user_query: "Find vehicles where pp is one of 19/22, 20/23, or 21/24"
+    assert:
+      - type: icontains
+        value: "pp"
+      - type: icontains
+        value: "oneOf"
+      - type: icontains-all
+        value:
+          - "19/22"
+          - "20/23"
+          - "21/24"
+
+  - description: "Q-0060: MinorMaVersion oneOf filter (easy)"
+    vars:
+      user_query: "Show vehicles where minorMaVersion is one of 05, 06, 07, or 08"
+    assert:
+      - type: icontains
+        value: "minorMaVersion"
+      - type: icontains
+        value: "oneOf"
+      - type: icontains-all
+        value:
+          - "05"
+          - "06"
+          - "07"
+          - "08"
+
+  # ---------------------------------------------------------------------------
+  # RANGE FILTERS
+  # ---------------------------------------------------------------------------
+  - description: "Q-0056: maVersion range filter (medium)"
+    vars:
+      user_query: "List vehicles where maVersion is between 18 and 20"
+    assert:
+      - type: icontains
+        value: "maVersion"
+      - type: icontains
+        value: "gte"
+      - type: icontains
+        value: "lte"
+      - type: icontains
+        value: "18"
+      - type: icontains
+        value: "20"
+
+  # ---------------------------------------------------------------------------
+  # COMBINED FILTERS
+  # ---------------------------------------------------------------------------
+  - description: "Q-0059: Family + Engine wildcard (medium)"
+    vars:
+      user_query: "Get vehicles where family is Truck and engineType starts with D26"
+    assert:
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+      - type: icontains
+        value: "engineType"
+      - type: icontains
+        value: "wildcard"
+      - type: icontains
+        value: "D26"
+
+  # ---------------------------------------------------------------------------
+  # OR FILTERS (Aus Original-Dataset)
+  # ---------------------------------------------------------------------------
+  - description: "Q-0031: OR Filter - Family Truck or Bus (medium)"
+    vars:
+      user_query: "Show vehicles where family is Truck or family is Bus"
+    assert:
+      - type: icontains
+        value: "or"
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+      - type: icontains
+        value: "Bus"
+
+  - description: "Q-0032: OR Filter - Engine types (medium)"
+    vars:
+      user_query: "Find vehicles where engineType is D2676LFAZ or engineType is D2676LFAA"
+    assert:
+      - type: icontains
+        value: "engineType"
+      - type: icontains
+        value: "D2676LFAZ"
+      - type: icontains
+        value: "D2676LFAA"
+      - type: llm-rubric
+        value: "Die Query filtert nach engineType D2676LFAZ oder D2676LFAA, entweder mit or-Array oder oneOf-Operator."
+
+  - description: "Q-0036: OR Filter - VehicleId wildcards (medium)"
+    vars:
+      user_query: "Find vehicles where vehicleId starts with 13F or vehicleId starts with 14F"
+    assert:
+      - type: icontains
+        value: "or"
+      - type: icontains
+        value: "vehicleId"
+      - type: icontains
+        value: "wildcard"
+      - type: icontains
+        value: "13F"
+      - type: icontains
+        value: "14F"
+
+  # ---------------------------------------------------------------------------
+  # NOT FILTERS
+  # ---------------------------------------------------------------------------
+  - description: "Q-0041: NOT Filter - Family not Bus (medium)"
+    vars:
+      user_query: "Show vehicles where family is not Bus"
+    assert:
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Bus"
+      - type: llm-rubric
+        value: "Die Query schließt Fahrzeuge mit family=Bus aus, entweder mit not-Operator oder ne-Operator."
+
+  - description: "Q-0042: NOT Filter - Engine type exclusion (medium)"
+    vars:
+      user_query: "Find vehicles where engineType is not D2676LFAA"
+    assert:
+      - type: icontains
+        value: "engineType"
+      - type: icontains
+        value: "D2676LFAA"
+      - type: llm-rubric
+        value: "Die Query schließt Fahrzeuge mit engineType=D2676LFAA aus."
+
+  - description: "Q-0045: NOT EXISTS Filter (medium)"
+    vars:
+      user_query: "Show vehicles where custspecVersion does not exist"
+    assert:
+      - type: icontains
+        value: "custspecVersion"
+      - type: icontains
+        value: "exists"
+      - type: icontains
+        value: "false"
+
+  # ---------------------------------------------------------------------------
+  # NESTED/COMPLEX FILTERS (Hard)
+  # ---------------------------------------------------------------------------
+  - description: "Q-0046: Nested AND + OR (hard)"
+    vars:
+      user_query: "Find vehicles where family is Truck and either maVersion is 19 or udfVersion is 014"
+    assert:
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+      - type: icontains
+        value: "maVersion"
+      - type: icontains
+        value: "19"
+      - type: icontains
+        value: "udfVersion"
+      - type: icontains
+        value: "014"
+      - type: llm-rubric
+        value: "Die Query kombiniert korrekt family=Truck mit einer OR-Bedingung für maVersion=19 oder udfVersion=014."
+
+  - description: "Q-0047: Nested AND + OR with pp (hard)"
+    vars:
+      user_query: "List vehicles where engineType is D2676LFAZ and either pp is 20/23 or pp is 21/24"
+    assert:
+      - type: icontains
+        value: "engineType"
+      - type: icontains
+        value: "D2676LFAZ"
+      - type: icontains
+        value: "pp"
+      - type: icontains
+        value: "20/23"
+      - type: icontains
+        value: "21/24"
+
+  - description: "Q-0048: AND + NOT combination (hard)"
+    vars:
+      user_query: "Show vehicles where family is Truck and maVersion is 19 but not udfVersion 013"
+    assert:
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+      - type: icontains
+        value: "maVersion"
+      - type: icontains
+        value: "19"
+      - type: icontains
+        value: "udfVersion"
+      - type: icontains
+        value: "013"
+      - type: llm-rubric
+        value: "Die Query kombiniert family=Truck und maVersion=19 und schließt udfVersion=013 aus."
+
+  - description: "Q-0049: Complex OR with nested AND (hard)"
+    vars:
+      user_query: "Find vehicles where either family is Truck and maVersion is 19, or family is Bus and maVersion is 20"
+    assert:
+      - type: icontains
+        value: "or"
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+      - type: icontains
+        value: "Bus"
+      - type: icontains
+        value: "maVersion"
+      - type: icontains
+        value: "19"
+      - type: icontains
+        value: "20"
+      - type: llm-rubric
+        value: "Die Query hat zwei OR-Zweige: (Truck AND maVersion=19) OR (Bus AND maVersion=20)."
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY FILTERS (Erweitert)
+  # ---------------------------------------------------------------------------
+  - description: "Q-0030: Category + Family combination (medium)"
+    vars:
+      user_query: "Find vehicles with family Truck and a LTGSATZ category containing item 81254805001"
+    assert:
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+      - type: icontains
+        value: "categories"
+      - type: icontains
+        value: "LTGSATZ"
+      - type: icontains
+        value: "81254805001"
+
+  - description: "Q-0038: Category OR items (medium)"
+    vars:
+      user_query: "Show vehicles with a FKT_DATEN category containing 81258903072 or 81258911461"
+    assert:
+      - type: icontains
+        value: "categories"
+      - type: icontains
+        value: "FKT_DATEN"
+      - type: icontains
+        value: "81258903072"
+      - type: icontains
+        value: "81258911461"
+
+  - description: "Q-0039: Category field OR (medium)"
+    vars:
+      user_query: "Find vehicles where the EOL_INFO category has GATEWAY equal to 02 or REMOTE_FLASH equal to 01"
+    assert:
+      - type: icontains
+        value: "categories"
+      - type: icontains
+        value: "EOL_INFO"
+      - type: icontains
+        value: "GATEWAY"
+      - type: icontains
+        value: "02"
+      - type: icontains
+        value: "REMOTE_FLASH"
+      - type: icontains
+        value: "01"
+
+  # ---------------------------------------------------------------------------
+  # PARAPHRASE TESTS (Umgangssprachlich)
+  # ---------------------------------------------------------------------------
+  - description: "Paraphrase: Show all trucks (improved)"
+    vars:
+      user_query: "Zeige mir alle LKWs"
+    assert:
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+
+  - description: "Paraphrase: Vehicles from 2025"
+    vars:
+      user_query: "Welche Fahrzeuge wurden 2025 geändert?"
+    assert:
+      - type: icontains
+        value: "changeDate"
+      - type: icontains
+        value: "2025"
+
+  - description: "Paraphrase: D26 engines"
+    vars:
+      user_query: "Ich brauche alle Fahrzeuge mit D26 Motoren"
+    assert:
+      - type: icontains
+        value: "engineType"
+      - type: icontains
+        value: "D26"
+
+  - description: "Paraphrase: VIN search"
+    vars:
+      user_query: "Suche nach Fahrzeugen mit VIN WMA13FZZ3RM933559"
+    assert:
+      - type: icontains
+        value: "vin"
+      - type: icontains
+        value: "WMA13FZZ3RM933559"
+
+  - description: "Paraphrase: Recent vehicles"
+    vars:
+      user_query: "Gib mir die neuesten Fahrzeuge von Januar 2026"
+    assert:
+      - type: icontains
+        value: "changeDate"
+      - type: icontains
+        value: "2026"
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+outputPath: ./astro-graphql-extended-results.json
+writeLatestResults: true
+
+# =============================================================================
+# SHARING
+# =============================================================================
+sharing:
+  apiBaseUrl: http://localhost:3210
+  appBaseUrl: http://localhost:3210

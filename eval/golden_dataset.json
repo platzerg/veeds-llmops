@@ -71,10 +71,22 @@
       "description": "Multiple errors: bad format + empty description + invalid unit",
       "input": "materialNumber: 123\ndescription: \"\"\nunit: xyz\nvalueRange:\n  min: 50\n  max: 10",
       "expectedErrors": [
-        { "field": "materialNumber", "severity": "error" },
-        { "field": "description", "severity": "error" },
-        { "field": "unit", "severity": "error" },
-        { "field": "valueRange", "severity": "error" }
+        {
+          "field": "materialNumber",
+          "severity": "error"
+        },
+        {
+          "field": "description",
+          "severity": "error"
+        },
+        {
+          "field": "unit",
+          "severity": "error"
+        },
+        {
+          "field": "valueRange",
+          "severity": "error"
+        }
       ],
       "expectedIsValid": false
     },
@@ -189,6 +201,147 @@
         }
       ],
       "expectedIsValid": false
+    },
+    {
+      "id": "prod-e968fbf2",
+      "category": "true_negative",
+      "description": "Imported from production trace e968fbf2",
+      "input": "materialNumber: INVALID\ndescription: \"\"\nunit: bananas\nvalueRange:\n  min: 100\n  max: 5",
+      "expectedErrors": [],
+      "expectedIsValid": true,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "e968fbf2-4609-4e2f-950e-9a89ae3791ed",
+        "exportedAt": "2026-02-07T17:18:50.765Z"
+      }
+    },
+    {
+      "id": "prod-7a9af0f8",
+      "category": "true_negative",
+      "description": "Imported from production trace 7a9af0f8",
+      "input": "materialNumber: ABC-12345\ndescription: Bremsscheibe vorne links\nunit: mm\nvalueRange:\n  min: 20\n  max: 35\ncategory: Bremsanlage",
+      "expectedErrors": [],
+      "expectedIsValid": true,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "7a9af0f8-26ac-4605-b8d3-7f03d73f7840",
+        "exportedAt": "2026-02-07T17:18:50.793Z"
+      }
+    },
+    {
+      "id": "prod-0cb846c3",
+      "category": "true_positive",
+      "description": "Imported from production trace 0cb846c3",
+      "input": "{\"yamlEntry\":\"materialNumber: INVALID\\ndescription: Bremsscheibe\\nunit: bananas\"}",
+      "expectedErrors": [
+        {
+          "field": "materialNumber",
+          "message": "Muss dem Format XXX-NNNNN entsprechen",
+          "severity": "error"
+        },
+        {
+          "field": "unit",
+          "message": "Muss eine gültige SI-Einheit sein",
+          "severity": "error"
+        }
+      ],
+      "expectedIsValid": false,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "0cb846c3-a9f2-4cf1-ac35-7076d39c2cc9",
+        "exportedAt": "2026-02-07T17:18:50.821Z"
+      }
+    },
+    {
+      "id": "prod-7264d1ef",
+      "category": "true_negative",
+      "description": "Imported from production trace 7264d1ef",
+      "input": "{\"yamlEntry\":\"materialNumber: ABC-12345\\ndescription: Bremsscheibe vorne links\\nunit: mm\\nvalueRange:\\n  min: 20\\n  max: 35\\ncategory: Bremsanlage\"}",
+      "expectedErrors": [],
+      "expectedIsValid": true,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "7264d1ef-4dd7-47af-a37c-fecead3bb8fe",
+        "exportedAt": "2026-02-07T17:18:50.838Z"
+      }
+    },
+    {
+      "id": "prod-6c71b605",
+      "category": "true_negative",
+      "description": "Imported from production trace 6c71b605",
+      "input": "{\"yamlEntry\":\"materialNumber: INVALID\\ndescription: Bremsscheibe\\nunit: bananas\"}",
+      "expectedErrors": [],
+      "expectedIsValid": true,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "6c71b605-399e-40a6-a413-811de22b41ce",
+        "exportedAt": "2026-02-07T17:18:50.859Z"
+      }
+    },
+    {
+      "id": "prod-6ad897e0",
+      "category": "true_negative",
+      "description": "Imported from production trace 6ad897e0",
+      "input": "{\"yamlEntry\":\"materialNumber: ABC-12345\\ndescription: Bremsscheibe vorne links\\nunit: mm\\nvalueRange:\\n  min: 20\\n  max: 35\\ncategory: Bremsanlage\"}",
+      "expectedErrors": [],
+      "expectedIsValid": true,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "6ad897e0-64ca-4cf0-84f0-e5c65fa6938a",
+        "exportedAt": "2026-02-07T17:18:50.880Z"
+      }
+    },
+    {
+      "id": "prod-d11338aa",
+      "category": "true_negative",
+      "description": "Imported from production trace d11338aa",
+      "input": "{\"yamlEntry\":\"materialNumber: INVALID\\ndescription: Bremsscheibe\\nunit: bananas\"}",
+      "expectedErrors": [],
+      "expectedIsValid": true,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "d11338aa-23af-4bf6-aea9-6acef2b77d5c",
+        "exportedAt": "2026-02-07T17:18:50.904Z"
+      }
+    },
+    {
+      "id": "prod-90468367",
+      "category": "true_negative",
+      "description": "Imported from production trace 90468367",
+      "input": "{\"yamlEntry\":\"materialNumber: ABC-12345\\ndescription: Bremsscheibe vorne links\\nunit: mm\\nvalueRange:\\n  min: 20\\n  max: 35\\ncategory: Bremsanlage\"}",
+      "expectedErrors": [],
+      "expectedIsValid": true,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "90468367-ec34-4e9a-882a-836dfd883cba",
+        "exportedAt": "2026-02-07T17:18:50.923Z"
+      }
+    },
+    {
+      "id": "prod-a7e606df",
+      "category": "true_negative",
+      "description": "Imported from production trace a7e606df",
+      "input": "{\"yamlEntry\":\"materialNumber: INVALID\\ndescription: Bremsscheibe\\nunit: bananas\"}",
+      "expectedErrors": [],
+      "expectedIsValid": true,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "a7e606df-c219-4f3c-821c-d7b6b26b9ec9",
+        "exportedAt": "2026-02-07T17:18:50.939Z"
+      }
+    },
+    {
+      "id": "prod-65510df9",
+      "category": "true_negative",
+      "description": "Imported from production trace 65510df9",
+      "input": "{\"yamlEntry\":\"materialNumber: ABC-12345\\ndescription: Bremsscheibe vorne links\\nunit: mm\\nvalueRange:\\n  min: 20\\n  max: 35\\ncategory: Bremsanlage\"}",
+      "expectedErrors": [],
+      "expectedIsValid": true,
+      "metadata": {
+        "source": "production-export",
+        "traceId": "65510df9-ecdc-4031-aad5-7f2d31efc6af",
+        "exportedAt": "2026-02-07T17:18:50.962Z"
+      }
     }
   ]
 }

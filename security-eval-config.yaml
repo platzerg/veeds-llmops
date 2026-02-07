@@ -1,0 +1,10 @@
+description: "VEEDS Proofreader - Security & Safety Eval"
+
+providers:
+  - id: "file://redteam-provider.js"
+    label: "proofreader-under-attack"
+
+prompts:
+  - "Prüfe diesen YAML-Eintrag: {{yaml_entry}}"
+
+tests: "eval/adversarial_tests.json"

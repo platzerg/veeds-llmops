@@ -1,0 +1,124 @@
+# =============================================================================
+# Promptfoo - GraphQL Test Case Generator Configuration
+# =============================================================================
+# Diese Konfiguration wird verwendet, um automatisch neue Testfälle zu generieren.
+#
+# Generieren: npx promptfoo generate dataset --config promptfooconfig-generate-graphql.yaml --output datasets/generated-graphql-tests.yaml
+# =============================================================================
+
+description: "GraphQL Query Generation Test Case Generator"
+
+# =============================================================================
+# PROVIDER für Generierung
+# =============================================================================
+providers:
+  - id: bedrock:us.anthropic.claude-3-5-sonnet-20241022-v2:0
+    label: "Claude 3.5 Sonnet"
+    config:
+      region: us-east-1
+      temperature: 0.7  # Höhere Temperatur für mehr Varianz
+      max_tokens: 4096
+
+# =============================================================================
+# PROMPT - Definiert den Kontext für die Generierung
+# =============================================================================
+prompts:
+  - id: graphql-generator
+    label: "GraphQL Query Generator"
+    raw: |
+      Du bist ein Experte für die MAN Vehicle Information GraphQL API.
+      Deine Aufgabe ist es, natürlichsprachliche Anfragen in valide GraphQL-Queries zu übersetzen.
+
+      ## GraphQL Schema
+
+      ```graphql
+      type Query {
+        vehicleConfigurations(filter: VehicleFilter): VehicleConfigurationResult
+      }
+
+      input VehicleFilter {
+        vehicleId: StringFilter
+        vin: StringFilter
+        engineType: StringFilter
+        engineNumber: StringFilter
+        family: StringFilter          # Werte: "Truck", "Bus"
+        maVersion: StringFilter       # z.B. "18", "19", "20"
+        minorMaVersion: StringFilter  # z.B. "05", "06", "07"
+        pp: StringFilter              # z.B. "19/22", "20/23", "21/24"
+        udfVersion: StringFilter      # z.B. "014", "015", "016"
+        changeDate: StringFilter      # ISO DateTime
+        custspecVersion: StringFilter
+        vdfGenerationDate: StringFilter
+        categories: [CategoryFilter]
+        and: [VehicleFilter]
+        or: [VehicleFilter]
+        not: VehicleFilter
+      }
+
+      input StringFilter {
+        eq: String
+        ne: String
+        gt: String
+        gte: String
+        lt: String
+        lte: String
+        wildcard: String
+        oneOf: [String]
+        exists: Boolean
+      }
+
+      input CategoryFilter {
+        name: String!    # z.B. "TESTDATEN", "EOL_INFO", "FZG_INFO", "EOL_ECU", "SG_KPL", "FKT_DATEN", "LTGSATZ"
+        field: FieldFilter
+        items: ItemsFilter
+      }
+      ```
+
+      ## Verfügbare Filter-Operatoren
+      - eq: Exakte Übereinstimmung
+      - ne: Nicht gleich
+      - gt/gte: Größer als / Größer oder gleich
+      - lt/lte: Kleiner als / Kleiner oder gleich
+      - wildcard: Pattern-Matching mit * (z.B. "WMA*", "*FZZ*")
+      - oneOf: Einer von mehreren Werten
+      - exists: Prüft ob Feld existiert (true/false)
+
+      ## Beispiel-Werte
+      - VIN: WMA13FZZ3RM933559
+      - vehicleId: 13F0494
+      - engineType: D2676LFAZ, D2676LFAA
+      - engineNumber: 21267130196718
+      - family: Truck, Bus
+      - maVersion: 18, 19, 20
+      - pp: 19/22, 20/23, 21/24
+
+      ## Benutzeranfrage
+      {{user_query}}
+
+      ## GraphQL Query
+
+# =============================================================================
+# BEISPIEL-TESTS (für Kontext bei der Generierung)
+# =============================================================================
+tests:
+  - vars:
+      user_query: "Show me all vehicles with VIN WMA13FZZ3RM933559"
+    assert:
+      - type: icontains
+        value: "vin"
+      - type: icontains
+        value: "eq"
+
+  - vars:
+      user_query: "Find trucks with maVersion 19"
+    assert:
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+
+  - vars:
+      user_query: "List vehicles where engineType is D2676LFAZ or D2676LFAA"
+    assert:
+      - type: icontains
+        value: "engineType"

@@ -1,6 +1,7 @@
 # Environment
 .env
-.env.local
+.env.*
+!.env.example
 
 # Node
 node_modules/
@@ -23,18 +24,39 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Promptfoo
+# Promptfoo & Eval
 .promptfoo/
+promptfoo_data/
 promptfoo-output.json
 promptfoo-output.html
 eval/generated-tests.yaml
+eval/results/
+adversarial_tests.json
+*-results.json
+eval-results.json
 
 # k6
 k6-results.json
 k6-results-*.json
 
-# Logs
+# Logs & Temp
 *.log
+*.txt
+security_output*
+demo_output*
 
-# Docker volumes (if accidentally committed)
+# Internal / Sensitive
+*.xlsx
+*.csv
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!*config.yaml
+!golden_dataset.json
+!adversarial_tests.json
+!vehicle-response.json
+!vin-validation.json
+
+# Docker volumes
 data/
