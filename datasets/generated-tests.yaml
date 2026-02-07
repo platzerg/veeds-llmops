@@ -1,0 +1,161 @@
+# Auto-generierte Test Cases für Vehicle Information Assistant
+# Generiert mit: npx promptfoo generate dataset
+# 
+# Diese Tests können in promptfooconfig.yaml importiert werden mit:
+#   tests:
+#     - file://datasets/generated-tests.yaml
+
+# VIN Fragen
+- vars:
+    query: Wie kann ich das Baujahr aus einer VIN ablesen?
+  assert:
+    - type: icontains
+      value: "position"
+    - type: llm-rubric
+      value: "Die Antwort erklärt, dass das Modelljahr an Position 10 der VIN kodiert ist."
+
+- vars:
+    query: Wo finde ich die VIN an einem MAN TGS?
+  assert:
+    - type: icontains-any
+      value:
+        - "rahmen"
+        - "typenschild"
+        - "windschutzscheibe"
+
+- vars:
+    query: Was bedeutet die Buchstabenkombination 'WMA' am Anfang einer VIN?
+  assert:
+    - type: icontains
+      value: "MAN"
+    - type: llm-rubric
+      value: "Die Antwort erklärt WMA als Weltherstellercode für MAN."
+
+- vars:
+    query: Ist eine VIN eindeutig oder können zwei Fahrzeuge die gleiche VIN haben?
+  assert:
+    - type: icontains
+      value: "eindeutig"
+
+- vars:
+    query: Sind VINs case-sensitive? Macht es einen Unterschied ob groß oder klein geschrieben?
+  assert:
+    - type: llm-rubric
+      value: "Die Antwort erklärt, dass VINs nur Großbuchstaben verwenden."
+
+- vars:
+    query: Wie kann ich prüfen ob eine VIN authentisch ist?
+  assert:
+    - type: icontains-any
+      value:
+        - "prüfziffer"
+        - "position 9"
+        - "check digit"
+
+- vars:
+    query: Kann ich anhand der VIN erkennen, ob es sich um einen Elektro-LKW handelt?
+  assert:
+    - type: llm-rubric
+      value: "Die Antwort erklärt, ob und wie der Antriebstyp in der VIN kodiert ist."
+
+- vars:
+    query: Was bedeutet die Kennung 'L' an Position 4 der VIN?
+  assert:
+    - type: llm-rubric
+      value: "Die Antwort erklärt die Bedeutung der Fahrzeugbeschreibung in der VIN."
+
+# MAN Fahrzeugtypen
+- vars:
+    query: Welche Achskonfigurationen sind beim MAN TGX verfügbar?
+  assert:
+    - type: icontains-any
+      value:
+        - "4x2"
+        - "6x2"
+        - "6x4"
+    - type: llm-rubric
+      value: "Die Antwort nennt mindestens 2 verschiedene Achskonfigurationen."
+
+- vars:
+    query: Was bedeutet die Typbezeichnung 18.510 beim MAN TGX?
+  assert:
+    - type: icontains
+      value: "510"
+    - type: llm-rubric
+      value: "Die Antwort erklärt die Bedeutung der Zahlen (Tonnage und PS)."
+
+- vars:
+    query: Was bedeutet die Achsformel 6x2-4?
+  assert:
+    - type: icontains
+      value: "achse"
+    - type: llm-rubric
+      value: "Die Antwort erklärt die Achsformel (6 Räder, 2 angetrieben, Position der Liftachse)."
+
+- vars:
+    query: Welche maximale Zuladung hat ein MAN TGL mit 7,5 Tonnen?
+  assert:
+    - type: llm-rubric
+      value: "Die Antwort gibt eine plausible Zuladung an oder erklärt, dass dies von der Konfiguration abhängt."
+
+# Elektro-LKW
+- vars:
+    query: Welche Reichweite hat der elektrische MAN eTGM?
+  assert:
+    - type: regex
+      value: "\\d+.*km"
+    - type: llm-rubric
+      value: "Die Antwort nennt eine Reichweite in Kilometern."
+
+- vars:
+    query: Wie unterscheidet sich die Batteriekapazität zwischen eTGM und eTGE?
+  assert:
+    - type: icontains
+      value: "kWh"
+    - type: llm-rubric
+      value: "Die Antwort vergleicht die Batteriekapazitäten der beiden Modelle."
+
+- vars:
+    query: Wie viele Elektromotoren hat der MAN eTGX?
+  assert:
+    - type: llm-rubric
+      value: "Die Antwort nennt die Anzahl der Elektromotoren oder erklärt das Antriebskonzept."
+
+# Motoren & Abgasnormen
+- vars:
+    query: Wie unterscheidet sich ein Euro 6e von einem Euro 6d Motor?
+  assert:
+    - type: icontains
+      value: "abgas"
+    - type: llm-rubric
+      value: "Die Antwort erklärt die Unterschiede zwischen den Abgasnormen."
+
+- vars:
+    query: Was bedeutet die Typbezeichnung D26 bei MAN Motoren?
+  assert:
+    - type: llm-rubric
+      value: "Die Antwort erklärt die Motorbezeichnung (Hubraum oder Baureihe)."
+
+# Fahrzeugdaten & Dokumente
+- vars:
+    query: Wie lange muss ein Hersteller Fahrzeugdaten aufbewahren?
+  assert:
+    - type: llm-rubric
+      value: "Die Antwort nennt eine Aufbewahrungsfrist oder erklärt die gesetzlichen Anforderungen."
+
+- vars:
+    query: Welche Informationen enthält das Fahrzeugscheinteil 2 über die Achslast?
+  assert:
+    - type: icontains-any
+      value:
+        - "achslast"
+        - "zulässig"
+        - "kg"
+
+- vars:
+    query: Was ist der Unterschied zwischen zGG und zGM?
+  assert:
+    - type: icontains
+      value: "gewicht"
+    - type: llm-rubric
+      value: "Die Antwort erklärt den Unterschied zwischen zulässigem Gesamtgewicht und zulässiger Gesamtmasse."

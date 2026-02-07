@@ -7,6 +7,8 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 import { getLangfuse } from "./langfuse-client.js";
 import logger from "./logger.js";
+import { anonymizeText } from "./privacy/pii-filter.js";
+import { calculateCost } from "./monitoring/cost-calculator.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,7 +55,7 @@ async function withRetry<T>(
       }
 
       const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
-      
+
       // Replace console.warn with structured logging
       logger.warn('Bedrock retry attempt', {
         operation: 'bedrock-retry',
@@ -64,7 +66,7 @@ async function withRetry<T>(
         errorMessage: error.message,
         retryableErrors
       });
-      
+
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
@@ -117,27 +119,53 @@ export async function proofreadEntry(
     tags: options?.tags
   });
 
-  // Create trace
+  // -----------------------------------------------------------------------
+  // Step 0: PII Filtering (Privacy First)
+  // -----------------------------------------------------------------------
+  let processedEntry = yamlEntry;
+  let detectedEntities: string[] = [];
+
+  try {
+    const redactionResult = await anonymizeText(yamlEntry);
+    processedEntry = redactionResult.anonymizedText;
+    detectedEntities = redactionResult.detectedEntities;
+  } catch (piiError) {
+    logger.warn('PII filtering failed', { error: String(piiError) });
+  }
+
+  // Create trace (using redacted input if available)
   const trace = langfuse.trace({
     name: "veeds-proofreader",
-    input: yamlEntry,
+    input: processedEntry,
     userId: options?.userId,
     sessionId: options?.sessionId,
     tags: options?.tags || ["proofreader"],
     metadata: {
       specVersion: "2.1",
+      piiRedacted: detectedEntities.length > 0
     },
   });
 
   // Set up trace correlation for logging
   logger.withLangfuseTrace(trace, options?.userId);
 
+  if (detectedEntities.length > 0) {
+    const piiSpan = trace.span({
+      name: "pii-redaction",
+      output: {
+        entitiesDetected: true,
+        entityTypes: detectedEntities
+      }
+    });
+    piiSpan.end();
+  }
+
   try {
     // -----------------------------------------------------------------------
     // Step 1: Load prompt from Langfuse (with fallback)
     // -----------------------------------------------------------------------
     logger.debug('Loading prompt from Langfuse', { operation: 'load-prompt' });
-    
+
     const promptSpan = trace.span({
       name: "load-prompt",
       metadata: { source: "langfuse" },
@@ -150,7 +178,7 @@ export async function proofreadEntry(
         cacheTtlSeconds: 300, // Cache 5 min client-side
       });
 
-      compiledPrompt = prompt.compile({ yaml_entry: yamlEntry });
+      compiledPrompt = prompt.compile({ yaml_entry: processedEntry });
 
       promptSpan.end({
         output: { source: "langfuse", version: prompt.version },
@@ -174,7 +202,7 @@ export async function proofreadEntry(
     } catch (promptError) {
       // Fallback to default prompt
       compiledPrompt = DEFAULT_PROMPT.replace("{{yaml_entry}}", yamlEntry);
-      
+
       promptSpan.end({
         output: { source: "fallback" },
         level: "WARNING",
@@ -191,7 +219,7 @@ export async function proofreadEntry(
     // -----------------------------------------------------------------------
     // Step 2: Call Bedrock
     // -----------------------------------------------------------------------
-    logger.debug('Calling Bedrock API', { 
+    logger.debug('Calling Bedrock API', {
       operation: 'bedrock-invoke',
       model: 'anthropic.claude-3-5-sonnet-20241022-v2:0'
     });
@@ -233,34 +261,50 @@ export async function proofreadEntry(
       new TextDecoder().decode(bedrockResponse.body)
     );
     const rawResponse = responseBody.content[0].text;
+    const inputTokens = responseBody.usage?.input_tokens || 0;
+    const outputTokens = responseBody.usage?.output_tokens || 0;
+    const modelId = "anthropic.claude-3-5-sonnet-20241022-v2:0";
+
+    // Calculate cost
+    const cost = calculateCost(modelId, inputTokens, outputTokens);
 
     // Log Bedrock operation performance
     logger.logBedrock({
-      model: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+      model: modelId,
       operation: 'invoke',
       duration: bedrockDuration,
       tokenUsage: {
-        inputTokens: responseBody.usage?.input_tokens || 0,
-        outputTokens: responseBody.usage?.output_tokens || 0,
+        inputTokens,
+        outputTokens,
       },
-      cost: 0, // Cost calculation would go here
+      cost,
     });
 
     // Track usage
     generation.end({
       output: rawResponse,
       usage: {
-        input: responseBody.usage?.input_tokens,
-        output: responseBody.usage?.output_tokens,
+        input: inputTokens,
+        output: outputTokens,
+        total: inputTokens + outputTokens,
       },
+      // Note: If 'cost' fails lint, move to metadata or use trace.score
+      metadata: { cost }
+    });
+
+    // Score: cost
+    trace.score({
+      name: "cost_usd",
+      value: cost,
+      comment: `Model: ${modelId}`,
     });
 
     // -----------------------------------------------------------------------
     // Step 3: Parse response
     // -----------------------------------------------------------------------
-    logger.debug('Parsing LLM response', { 
+    logger.debug('Parsing LLM response', {
       operation: 'parse-response',
-      responseLength: rawResponse.length 
+      responseLength: rawResponse.length
     });
 
     const parseSpan = trace.span({ name: "parse-response" });
@@ -273,9 +317,9 @@ export async function proofreadEntry(
         throw new Error("No JSON found in response");
       }
       parsed = JSON.parse(jsonMatch[0]);
-      
+
       parseSpan.end({ output: { success: true } });
-      
+
       logger.debug('Response parsed successfully', {
         operation: 'parse-response',
         errorsFound: parsed.errors?.length || 0,
@@ -327,7 +371,9 @@ export async function proofreadEntry(
       errorsFound: result.errors.length,
       isValid: result.isValid,
       inputSize: yamlEntry.length,
-      outputSize: rawResponse.length
+      outputSize: rawResponse.length,
+      cost,
+      tokenUsage: { inputTokens, outputTokens }
     });
 
     return result;
@@ -336,8 +382,10 @@ export async function proofreadEntry(
 
     trace.update({
       output: { error: String(error) },
-      level: "ERROR",
-      statusMessage: String(error),
+      metadata: {
+        status: "ERROR",
+        errorMessage: String(error)
+      },
     });
 
     logger.error('YAML proofreading failed', {

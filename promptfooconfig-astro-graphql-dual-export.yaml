@@ -1,0 +1,111 @@
+# =============================================================================
+# Promptfoo - ASTRO GraphQL mit Dual-Export (Jaeger + X-Ray)
+# =============================================================================
+# Sendet Traces an Jaeger (lokal) UND AWS X-Ray (optional)
+#
+# Lokal testen (nur Jaeger):
+#   npm run tracing:start
+#   npm run eval:astro-jaeger
+#
+# Mit X-Ray (AWS Credentials erforderlich):
+#   npm run eval:astro-xray
+# =============================================================================
+
+description: "ASTRO GraphQL - Dual Export (Jaeger + X-Ray)"
+
+evaluateOptions:
+  maxConcurrency: 1
+  delay: 1000
+  showProgressBar: true
+  cache: false
+
+# =============================================================================
+# DUAL-EXPORT PROVIDER
+# =============================================================================
+providers:
+  - id: file://scripts/otel-bedrock-provider.js
+    label: "Claude Opus 4.5 (Dual Export)"
+    config:
+      modelId: eu.anthropic.claude-opus-4-5-20251101-v1:0
+      region: eu-central-1
+      serviceName: promptfoo-vehicle-info
+      temperature: 0.1
+      maxTokens: 2048
+      
+      # Jaeger/OTLP (lokal)
+      enableOtlp: true
+      otlpEndpoint: http://localhost:4318
+      
+      # AWS X-Ray - wird jetzt über ADOT Collector gehandhabt
+      enableXray: false
+
+# =============================================================================
+# PROMPTS
+# =============================================================================
+prompts:
+  - id: graphql-generator
+    label: "GraphQL Query Generator"
+    raw: |
+      Du bist ein Experte für die MAN Vehicle Information GraphQL API.
+      Deine Aufgabe ist es, natürlichsprachliche Anfragen in valide GraphQL-Queries zu übersetzen.
+
+      ## GraphQL Schema (vereinfacht)
+
+      ```graphql
+      type Query {
+        vehicleConfigurations(filter: VehicleFilter): VehicleConfigurationResult
+      }
+
+      input VehicleFilter {
+        vehicleId: StringFilter
+        vin: StringFilter
+        engineType: StringFilter
+        family: StringFilter
+        maVersion: StringFilter
+        changeDate: StringFilter
+        and: [VehicleFilter]
+        or: [VehicleFilter]
+        not: VehicleFilter
+      }
+
+      input StringFilter {
+        eq: String
+        wildcard: String
+        gte: String
+        lte: String
+      }
+      ```
+
+      ## Regeln
+      1. Gib NUR die GraphQL-Query zurück
+      2. Bei "trucks" oder "LKW" verwende family: { eq: "Truck" }
+
+      ## Benutzeranfrage
+      {{user_query}}
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+tests:
+  - description: "VIN Filter"
+    vars:
+      user_query: "Show me vehicle with VIN WMA13FZZ3RM933559"
+    assert:
+      - type: icontains
+        value: "vin"
+
+  - description: "Family Filter"
+    vars:
+      user_query: "Zeige mir alle LKWs"
+    assert:
+      - type: icontains
+        value: "Truck"
+
+  - description: "Date Range"
+    vars:
+      user_query: "Get vehicles changed in 2025"
+    assert:
+      - type: icontains
+        value: "changeDate"
+
+outputPath: ./astro-graphql-dual-export-results.json

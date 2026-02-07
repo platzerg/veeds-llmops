@@ -1,0 +1,168 @@
+# =============================================================================
+# Promptfoo - ASTRO GraphQL mit OpenTelemetry Tracing
+# =============================================================================
+# Aktiviert Tracing für detaillierte Performance-Metriken und Debugging
+#
+# Run: npx promptfoo eval --config promptfooconfig-astro-graphql-with-tracing.yaml
+# View: npx promptfoo view --port 3210
+# =============================================================================
+
+description: "ASTRO GraphQL Query Generation - Mit Tracing & Telemetry"
+
+# =============================================================================
+# TRACING CONFIGURATION (OpenTelemetry)
+# =============================================================================
+tracing:
+  enabled: true
+  # OTLP Receiver Konfiguration (Promptfoo als Receiver)
+  otlp:
+    port: 4318  # Standard OTLP HTTP Port
+  # Forwarding zu Jaeger (wenn docker-compose --profile tracing läuft)
+  forward:
+    endpoint: http://localhost:4318
+    # Für Docker: http://jaeger:4318
+
+# =============================================================================
+# EVALUATION OPTIONS
+# =============================================================================
+evaluateOptions:
+  maxConcurrency: 2
+  delay: 500
+  showProgressBar: true
+  cache: false  # Cache deaktiviert für vollständiges Tracing
+
+# =============================================================================
+# PROVIDER MIT TRACING
+# =============================================================================
+providers:
+  - id: bedrock:us.anthropic.claude-3-5-sonnet-20241022-v2:0
+    label: "Claude 3.5 Sonnet (Traced)"
+    config:
+      region: us-east-1
+      temperature: 0.1
+      max_tokens: 2048
+
+# =============================================================================
+# PROMPTS
+# =============================================================================
+prompts:
+  - id: graphql-generator
+    label: "GraphQL Query Generator"
+    raw: |
+      Du bist ein Experte für die MAN Vehicle Information GraphQL API.
+      Deine Aufgabe ist es, natürlichsprachliche Anfragen in valide GraphQL-Queries zu übersetzen.
+
+      ## GraphQL Schema (vereinfacht)
+
+      ```graphql
+      type Query {
+        vehicleConfigurations(filter: VehicleFilter): VehicleConfigurationResult
+      }
+
+      input VehicleFilter {
+        vehicleId: StringFilter
+        vin: StringFilter
+        engineType: StringFilter
+        engineNumber: StringFilter
+        family: StringFilter
+        maVersion: StringFilter
+        minorMaVersion: StringFilter
+        pp: StringFilter
+        udfVersion: StringFilter
+        changeDate: StringFilter
+        custspecVersion: StringFilter
+        vdfGenerationDate: StringFilter
+        categories: [CategoryFilter]
+        and: [VehicleFilter]
+        or: [VehicleFilter]
+        not: VehicleFilter
+      }
+
+      input StringFilter {
+        eq: String
+        ne: String
+        gt: String
+        gte: String
+        lt: String
+        lte: String
+        wildcard: String
+        oneOf: [String]
+        exists: Boolean
+      }
+      ```
+
+      ## Regeln
+      1. Gib NUR die GraphQL-Query zurück, ohne Erklärungen
+      2. Verwende die korrekten Filter-Operatoren
+      3. Bei "trucks" oder "LKW" verwende family: { eq: "Truck" }
+
+      ## Benutzeranfrage
+      {{user_query}}
+
+      ## GraphQL Query
+
+# =============================================================================
+# TEST CASES (Subset für Tracing Demo)
+# =============================================================================
+tests:
+  - description: "Tracing Test 1: Simple VIN Filter"
+    vars:
+      user_query: "Show me all vehicles with VIN WMA13FZZ3RM933559"
+    assert:
+      - type: icontains
+        value: "vin"
+      - type: icontains
+        value: "WMA13FZZ3RM933559"
+
+  - description: "Tracing Test 2: Family Filter"
+    vars:
+      user_query: "Zeige mir alle LKWs"
+    assert:
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+
+  - description: "Tracing Test 3: Complex AND Filter"
+    vars:
+      user_query: "Find vehicles where family is Truck and maVersion is 19"
+    assert:
+      - type: icontains
+        value: "family"
+      - type: icontains
+        value: "Truck"
+      - type: icontains
+        value: "maVersion"
+      - type: icontains
+        value: "19"
+
+  - description: "Tracing Test 4: Date Range"
+    vars:
+      user_query: "Get vehicles changed in 2025"
+    assert:
+      - type: icontains
+        value: "changeDate"
+      - type: icontains
+        value: "2025"
+
+  - description: "Tracing Test 5: Wildcard Pattern"
+    vars:
+      user_query: "Find vehicles with engineType containing LF"
+    assert:
+      - type: icontains
+        value: "engineType"
+      - type: icontains
+        value: "wildcard"
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+outputPath: ./astro-graphql-tracing-results.json
+writeLatestResults: true
+
+# =============================================================================
+# SHARING
+# =============================================================================
+sharing:
+  apiBaseUrl: http://localhost:3210
+  appBaseUrl: http://localhost:3210

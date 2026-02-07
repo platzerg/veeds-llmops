@@ -1,0 +1,40 @@
+# Externe Test Cases
+# Import mit: tests: file://datasets/tests-external.yaml
+
+tests:
+  # VIN Tests
+  - description: "VIN Länge"
+    vars:
+      query: "Wie lang ist eine VIN?"
+    assert:
+      - type: contains
+        value: "17"
+
+  - description: "VIN Buchstaben"
+    vars:
+      query: "Welche Buchstaben sind in einer VIN nicht erlaubt?"
+    assert:
+      - type: contains-any
+        value:
+          - "I"
+          - "O"
+          - "Q"
+
+  # Elektro-LKW Tests
+  - description: "eTGM Reichweite"
+    vars:
+      query: "Wie weit kann der MAN eTGM fahren?"
+      context: file://datasets/vars.yaml#context_elektro
+    assert:
+      - type: contains
+        value: "200"
+
+  # Achskonfiguration Tests
+  - description: "Achsformel erklären"
+    vars:
+      query: "Was bedeutet 6x4?"
+    assert:
+      - type: icontains
+        value: "achse"
+      - type: llm-rubric
+        value: "Die Antwort erklärt 6 Räder mit 4 angetriebenen."

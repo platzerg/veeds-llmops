@@ -18,6 +18,8 @@ docker compose ps
 git status
 ```
 
+docker-compose --profile llm-eval-observability-toolkit up promptfoo-ui
+
 ### **🔧 Schritt 1: Setup und Dependencies**
 
 #### **1.1 Dependencies installieren**
@@ -415,7 +417,7 @@ docker compose ps
 
 1. Browser → **http://localhost:3000**
 2. Account erstellen (erster User = Admin)
-3. Organisation anlegen (z.B. "MAN VEEDS")
+3. Organisation anlegen (z.B. "VEEDS CORP")
 4. Projekt anlegen (z.B. "VEEDS Proofreader")
 5. **Settings → API Keys** → Keys kopieren
 6. Keys in `.env` eintragen:
