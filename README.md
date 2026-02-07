@@ -656,12 +656,23 @@ Hier ist eine tiefergehende Aufschlüsselung der Verzeichnisse und ihrer Untermo
 *   **`schemas/`**: JSON- und JS-Schemas zur formalen Validierung von Fahrzeugdaten und LLM-Outputs.
 *   **`datasets/`**: Verschiedene YAML- und CSV-Testdatenquellen für großflächige Evaluationen.
 
-### **7. `eval/deepeval/` (Tier 2 Metrics)**
+### **7. `eval/deepeval/` (Tier 2 Scientific Metrics)**
 *   **`bedrock_model.py`**: Python-Adapter für AWS Bedrock (Claude 3.5).
 *   **`test_proofreader.py`**: Definition der Faithfulness- und Relevancy-Tests.
 *   **`generate_synthetic_data.py`**: KI-gestützte Generierung von Test-Cases.
+*   **`arena_battle.py`**: A/B Testing Suite für Modell-Vergleiche.
 
 ---
+
+## 🔬 Tier 2: DeepEval Integration
+
+Für fortgeschrittene Szenarien nutzen wir **DeepEval**, um die Qualität unserer LLM-Antworten mit wissenschaftlichen Metriken zu messen.
+
+### **Befehle**
+- `npm run eval:deepeval`: Führt die Python-basierten Metrik-Tests via Docker aus.
+- `npm run eval:deepeval:generate`: Erzeugt neue synthetische Test-Fälle für dein Modell.
+- `npm run eval:deepeval:arena`: Startet eine Arena-Battle zwischen verschiedenen Prompt-Versionen.
+- `npm run eval:deepeval:view`: Startet das interaktive DeepEval Dashboard auf Port 8080.
 
 ---
 
@@ -741,7 +752,9 @@ Hält dein Repository und dein Langfuse-Dashboard synchron.
 | **Dev** | `npm run demo` | `demo-proofreader.ts` | E2E Durchlauf (PII -> Bedrock -> Cost). |
 | **Eval** | `npm run eval` | `promptfoo eval` | Logische Validierung (Tier 1). |
 | | `npm run eval:deepeval` | `deepeval run` | Wissenschaftliche Metriken (Tier 2). |
+| | `npm run eval:deepeval:generate`| `synthetic_data.py` | **Synthetische Daten** generieren. |
 | | `npm run eval:deepeval:arena`| `arena_battle.py` | **A/B Testing** zweier Prompts. |
+| | `npm run eval:deepeval:view` | `deepeval dashboard`| **DeepEval Dashboard** (Port 8080). |
 | **Automation** | `npm run prompt:sync` | `prompt-sync.py` | **Git-to-Langfuse** Prompt Sync. |
 | | `npm run automation:score` | `auto-scorer.py` | **Automatisches Grading** in Langfuse. |
 | **Security** | `npm run redteam` | `promptfoo redteam` | Automatisierte Sicherheits-Angriffe. |
