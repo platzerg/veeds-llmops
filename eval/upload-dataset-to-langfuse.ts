@@ -16,8 +16,13 @@ import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import Langfuse from "langfuse";
+import dotenv from "dotenv";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, "..");
+
+// Load environment variables from .env explicitly from ROOT
+dotenv.config({ path: resolve(ROOT, ".env") });
 
 // ---------------------------------------------------------------------------
 // Config
@@ -61,6 +66,7 @@ console.log(
 // ---------------------------------------------------------------------------
 // Connect to Langfuse
 // ---------------------------------------------------------------------------
+
 const langfuse = new Langfuse({
   publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
   secretKey: process.env.LANGFUSE_SECRET_KEY!,

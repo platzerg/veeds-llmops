@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getLogger } from '../logging/logger.js';
+import { getLogger } from '../logging/logger.ts';
 
 const logger = getLogger();
 

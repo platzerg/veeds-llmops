@@ -18,17 +18,18 @@ services:
   # ---------------------------------------------------------------------------
   # Langfuse Web - Main UI + API (Port 3000)
   # ---------------------------------------------------------------------------
-  langfuse-web:
+  langfuse:
     image: langfuse/langfuse:3
-    container_name: langfuse-web
+    container_name: langfuse
     restart: unless-stopped
     ports:
       - "${LANGFUSE_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       # --- Database ---
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-langfuse}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@langfuse-postgres:5432/${POSTGRES_DB:-langfuse}
       # --- Auth ---
+      AUTH_DISABLE_SIGNUP: ${AUTH_DISABLE_SIGNUP:-false}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in .env}
       SALT: ${SALT:?Set SALT in .env}
@@ -61,15 +62,15 @@ services:
       # --- Features ---
       LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "true"
       # --- Optional: Headless Init (uncomment to auto-create org/project) ---
-      # LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-}
-      # LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-}
-      # LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-}
-      # LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-}
-      # LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:-}
-      # LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:-}
-      # LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-}
-      # LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-}
-      # LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
+      LANGFUSE_INIT_ORG_ID: "ai"
+      LANGFUSE_INIT_ORG_NAME: "VEEDS AI"
+      LANGFUSE_INIT_PROJECT_ID: "clx1234567890abcdef"
+      LANGFUSE_INIT_PROJECT_NAME: "VEEDS AI"
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_USER_EMAIL}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_USER_NAME}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,7 +100,7 @@ services:
       - "127.0.0.1:3030:3030"
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-langfuse}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@langfuse-postgres:5432/${POSTGRES_DB:-langfuse}
       # --- ClickHouse ---
       CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
       CLICKHOUSE_URL: http://clickhouse:8123
@@ -239,23 +240,35 @@ services:
   # ==========================================================================
   # Promptfoo Web UI - Ergebnisse anzeigen
   # ==========================================================================
-  promptfoo-ui:
+  promptfoo:
     image: ghcr.io/promptfoo/promptfoo:latest
-    container_name: promptfoo-ui
+    container_name: promptfoo
     ports:
       - '3210:3000'
     volumes:
       - ./promptfoo_data:/home/promptfoo/.promptfoo
       - ./promptfooconfig.yaml:/app/promptfooconfig.yaml:ro
-      - ./eval-results.json:/app/eval-results.json:ro
+      - ./redteamconfig-docker.yaml:/app/redteamconfig-docker.yaml:ro
+      - ./redteam-provider.ts:/app/redteam-provider.ts:ro
+      - ./eval:/app/eval:ro # Share entire eval directory with results
     environment:
-      - PROMPTFOO_SHARE_CHUNK_SIZE=10
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_HOST: http://langfuse:3000
+      LANGFUSE_BASEURL: http://langfuse:3000
+      PROMPTFOO_TRACING_ENABLED: "true"
+      PROMPTFOO_DISABLE_SHARING: "true"
+      PROMPTFOO_CONFIG_DIR: /home/promptfoo/.promptfoo
+      NODE_ENV: development
     networks:
       - aiqa
     depends_on:
       - jaeger
-    profiles:
-      - llm-eval-observability-toolkit
 
   # ==========================================================================
   # Promptfoo Eval Runner - Tests ausführen
@@ -374,14 +387,12 @@ services:
       - LOG_LEVEL=info
     networks:
       - aiqa
-    profiles:
-      - tracing
-      - llm-eval-observability-toolkit
-    # ==========================================================================
-    # GRAFANA TEMPO - Scalable Distributed Tracing Backend
-    # ==========================================================================
-    # Alternative zu Jaeger für größere Deployments
-    # Docs: https://grafana.com/docs/tempo/latest/
+
+  # ==========================================================================
+  # GRAFANA TEMPO - Scalable Distributed Tracing Backend
+  # ==========================================================================
+  # Alternative zu Jaeger für größere Deployments
+  # Docs: https://grafana.com/docs/tempo/latest/
   tempo:
     image: grafana/tempo:2.3.1
     container_name: tempo
@@ -395,8 +406,6 @@ services:
       - '4320:4318' # OTLP HTTP (different port to avoid conflict with Jaeger)
     networks:
       - aiqa
-    profiles:
-      - tempo
 
   # ==========================================================================
   # GRAFANA - Visualization & Dashboards
@@ -418,8 +427,6 @@ services:
       - aiqa
     depends_on:
       - tempo
-    profiles:
-      - monitor
 
   # ==========================================================================
   # OTEL COLLECTOR - OpenTelemetry Collector (Optional)
@@ -440,9 +447,6 @@ services:
       - aiqa
     depends_on:
       - jaeger
-    profiles:
-      - collector
-      - llm-eval-observability-toolkit
 
   # ==========================================================================
   # AWS ADOT COLLECTOR - AWS Distro for OpenTelemetry
@@ -497,10 +501,12 @@ services:
   # Microsoft Presidio - PII Protection
   # ==========================================================================
   presidio-analyzer:
-    image: mcr.microsoft.com/presidio-analyzer:latest
+    build:
+      context: ./infra/presidio
+      dockerfile: Dockerfile.analyzer
     container_name: presidio-analyzer
     ports:
-      - "5001:3000"
+      - "${ANALYZER_PORT:-5001}:3000"
     environment:
       # Configure German language support
       - ANALYZER_CONF_FILE=/app/config/languages-config.yml
@@ -514,7 +520,7 @@ services:
     image: mcr.microsoft.com/presidio-anonymizer:latest
     container_name: presidio-anonymizer
     ports:
-      - "5003:3000"
+      - "${ANONYMIZER_PORT:-5003}:3000"
     networks:
       - aiqa
     restart: unless-stopped
@@ -525,6 +531,7 @@ services:
   deepeval:
     image: python:3.10-slim
     container_name: deepeval-runner
+    restart: unless-stopped
     working_dir: /app
     volumes:
       - .:/app
@@ -535,31 +542,13 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
+      - OTEL_SERVICE_NAME=deepeval-service
+      - PYTHONPATH=/app
     command: >
-      sh -c "pip install -r eval/deepeval/requirements.txt && 
-             export PYTHONPATH=$PYTHONPATH:/app/eval/deepeval &&
-             deepeval test run eval/deepeval/test_proofreader.py"
+      sh -c "pip install -r eval/deepeval/requirements.txt && tail -f /dev/null"
     networks:
       - aiqa
-    profiles:
-      - deepeval
-
-  deepeval-ui:
-    image: python:3.10-slim
-    container_name: deepeval-ui
-    working_dir: /app
-    ports:
-      - "8080:8080"
-    volumes:
-      - .:/app
-    environment:
-      - DEEPEVAL_PORT=8080
-    command: >
-      sh -c "pip install deepeval && deepeval dashboard"
-    networks:
-      - aiqa
-    profiles:
-      - deepeval-ui
 
 # =============================================================================
 # Volumes

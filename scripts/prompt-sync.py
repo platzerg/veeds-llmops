@@ -23,7 +23,7 @@ def sync_prompts():
         langfuse.create_prompt(
             name="veeds-proofreader",
             prompt=prompt_content,
-            is_active=True,
+            labels=["production"],
             type="text",
             config={
                 "model": "anthropic.claude-3-5-sonnet-20240620-v1:0",

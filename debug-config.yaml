@@ -1,0 +1,13 @@
+outputPath: /home/promptfoo/.promptfoo/output/latest.json
+
+prompts:
+  - "Hello, respond with JSON: {\"message\": \"hi\"}"
+
+providers:
+  - id: openai:chat:gpt-4o-mini
+    config:
+      temperature: 0
+
+tests:
+  - vars:
+      foo: bar

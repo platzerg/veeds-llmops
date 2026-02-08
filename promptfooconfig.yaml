@@ -8,44 +8,72 @@
 
 description: "VEEDS Proofreader Evaluation"
 
+# =============================================================================
+# TRACING CONFIGURATION (OpenTelemetry → Jaeger)
+# =============================================================================
+tracing:
+  enabled: true
+  forward:
+    endpoint: http://localhost:4322  # OTEL Collector OTLP HTTP
+  serviceName: promptfoo-service
+
 sharing:
-  apiBaseUrl: http://localhost:3210
-  appBaseUrl: http://localhost:3210
+   apiBaseUrl: http://promptfoo:3210
+   appBaseUrl: http://promptfoo:3210
 
 # ---------------------------------------------------------------------------
-# Prompts: Load from Langfuse or use local fallback
+# Prompts: Load from Langfuse
 # ---------------------------------------------------------------------------
 prompts:
-  # Option A: Load from Langfuse (requires LANGFUSE_* env vars)
   - "langfuse://veeds-proofreader@production"
 
-  # Option B: Local prompt file (always works)
-  # - file://eval/prompt.txt
-
 # ---------------------------------------------------------------------------
-# Providers: AWS Bedrock via Claude
+# Providers: Multi-Provider Support (OpenAI, Anthropic, Bedrock)
 # ---------------------------------------------------------------------------
 providers:
-  # Temporarily disabled due to missing AWS credentials
-  # - id: bedrock:anthropic.claude-3-5-sonnet-20241022-v2:0
-  #   label: "Claude 3.5 Sonnet (Bedrock)"
-  #   config:
-  #     region: "eu-central-1"
-  #     max_tokens: 2048
-  #     temperature: 0
-  
-  # Using OpenAI instead for now
+  # --- OpenAI (ChatGPT) ---
   - id: openai:chat:gpt-4o-mini
-    label: "GPT-4o Mini (OpenAI)"
+    label: "GPT-4o Mini"
     config:
       temperature: 0
       max_tokens: 2048
-      apiKey: env:OPENAI_API_KEY
-  # Uncomment to compare models:
-  # - id: bedrock:anthropic.claude-3-haiku-20240307-v1:0
-  #   label: "Claude 3 Haiku (Bedrock)"
+
+  # Uncomment to add more providers:
+  # - id: openai:chat:gpt-4o
+  #   label: "GPT-4o"
   #   config:
-  #     region: "eu-central-1"
+  #     temperature: 0
+  #     max_tokens: 2048
+  #     apiKey: env:OPENAI_API_KEY
+
+  # --- Anthropic (Direct API) ---
+  # - id: anthropic:messages:claude-3-5-sonnet-20241022
+  #   label: "Claude 3.5 Sonnet (API)"
+  #   config:
+  #     temperature: 0
+  #     max_tokens: 2048
+  #     apiKey: env:ANTHROPIC_API_KEY
+
+  # - id: anthropic:messages:claude-3-5-haiku-20241022
+  #   label: "Claude 3.5 Haiku (API)"
+  #   config:
+  #     temperature: 0
+  #     max_tokens: 2048
+  #     apiKey: env:ANTHROPIC_API_KEY
+
+  # --- AWS Bedrock ---
+  # - id: bedrock:anthropic.claude-3-5-sonnet-20241022-v2:0
+  #   label: "Claude 3.5 Sonnet (Bedrock)"
+  #   config:
+  #     region: eu-central-1
+  #     max_tokens: 2048
+  #     temperature: 0
+  #     # Uses AWS_PROFILE or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY from .env
+
+  # - id: bedrock:anthropic.claude-3-5-haiku-20241022-v1:0
+  #   label: "Claude 3.5 Haiku (Bedrock)"
+  #   config:
+  #     region: eu-central-1
   #     max_tokens: 2048
   #     temperature: 0
 
@@ -88,7 +116,8 @@ tests: file://eval/generated-tests.yaml
 # ---------------------------------------------------------------------------
 # Output configuration
 # ---------------------------------------------------------------------------
-outputPath: ./eval/results/latest.json
+# Write to promptfoo_data which is mounted to container
+outputPath: /home/promptfoo/.promptfoo/output/latest.json
 
 # ---------------------------------------------------------------------------
 # Evaluation options

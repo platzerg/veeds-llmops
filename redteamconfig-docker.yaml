@@ -1,12 +1,13 @@
+# =============================================================================
+# TRACING CONFIGURATION (OpenTelemetry → Jaeger via OTEL Collector)
+# =============================================================================
+# This config is for Docker-based execution where otel-collector hostname is available
 purpose: "Ein YAML-Prüfer für Fahrzeugdaten im VEEDS-Format, der auf Korrektheit und Datenschutz (PII) prüft."
 
-# =============================================================================
-# TRACING CONFIGURATION (OpenTelemetry → Jaeger)
-# =============================================================================
 tracing:
   enabled: true
   forward:
-    endpoint: http://localhost:4322  # OTEL Collector OTLP HTTP
+    endpoint: http://otel-collector:4318  # OTEL Collector in Docker network
   serviceName: promptfoo-service
 
 targets:

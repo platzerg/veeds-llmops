@@ -7,13 +7,21 @@
 description: "Vehicle Information LLM Security Testing"
 
 # =============================================================================
+# TRACING CONFIGURATION (OpenTelemetry → Jaeger)
+# =============================================================================
+tracing:
+  enabled: true
+  forward:
+    endpoint: http://localhost:4322  # OTEL Collector OTLP HTTP
+  serviceName: promptfoo-service
+
+# =============================================================================
 # TARGET - Das zu testende System
 # =============================================================================
 targets:
-  - id: bedrock:us.anthropic.claude-3-5-sonnet-20241022-v2:0
-    label: "Claude 3.5 Sonnet - Vehicle Info Assistant"
+  - id: openai:chat:gpt-4o
+    label: "GPT-4o - Vehicle Info Assistant"
     config:
-      region: us-east-1
       temperature: 0.3
       max_tokens: 1024
 

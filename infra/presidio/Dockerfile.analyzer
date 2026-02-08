@@ -1,0 +1,29 @@
+# Custom Presidio Analyzer with Language Models
+# Based on official Microsoft Presidio Analyzer image
+# Adds German and English spaCy models for NER-based PII detection
+
+FROM mcr.microsoft.com/presidio-analyzer:latest
+
+# Upgrade pip to latest version
+RUN python -m pip install --upgrade pip
+
+# Install German spaCy model (Small - 40MB)
+# Sufficient for PII detection (PERSON, LOCATION, ORGANIZATION)
+RUN python -m pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/de_core_news_sm-3.7.0/de_core_news_sm-3.7.0-py3-none-any.whl
+
+# Install English spaCy model (Large - 560MB)
+# Better accuracy for English text
+RUN python -m pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1-py3-none-any.whl
+
+# Copy custom language configuration
+COPY languages-config.yml /app/config/languages-config.yml
+
+# Verify models are installed correctly
+RUN python -c "import spacy; \
+    spacy.load('de_core_news_sm'); \
+    spacy.load('en_core_web_lg'); \
+    print('✅ Language models loaded successfully')"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:3000/health').raise_for_status()"

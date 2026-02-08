@@ -3,11 +3,11 @@
 // =============================================================================
 
 // Re-export everything from the logging module for easy access
-export { logger, getLogger, resetLogger, Logger } from './logging/logger.js';
-export type { LogContext, BedrockOperation, PerformanceMetrics, Timer } from './logging/logger.js';
-export type { LoggerConfig, LogLevel, LogFormat, Environment } from './logging/config.js';
-export { loadConfig, validateConfig } from './logging/config.js';
-export { getContextManager } from './logging/context-manager.js';
+export { logger, getLogger, resetLogger, Logger } from './logging/logger.ts';
+export type { LogContext, BedrockOperation, PerformanceMetrics, Timer } from './logging/logger.ts';
+export type { LoggerConfig, LogLevel, LogFormat, Environment } from './logging/config.ts';
+export { loadConfig, validateConfig } from './logging/config.ts';
+export { getContextManager } from './logging/context-manager.ts';
 
 // Default export is the logger instance
-export { logger as default } from './logging/logger.js';
+export { logger as default } from './logging/logger.ts';

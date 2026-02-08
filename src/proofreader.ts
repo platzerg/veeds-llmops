@@ -1,14 +1,11 @@
 // =============================================================================
 // VEEDS Proofreader - With Langfuse Tracing + Prompt Management + Structured Logging
 // =============================================================================
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime";
-import { getLangfuse } from "./langfuse-client.js";
-import logger from "./logger.js";
-import { anonymizeText } from "./privacy/pii-filter.js";
-import { calculateCost } from "./monitoring/cost-calculator.js";
+import OpenAI from "openai";
+import { getLangfuse } from "./langfuse-client.ts";
+import logger from "./logger.ts";
+import { anonymizeText } from "./privacy/pii-filter.ts";
+import { calculateCost } from "./monitoring/cost-calculator.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,27 +24,27 @@ export interface ProofreadResult {
 }
 
 // ---------------------------------------------------------------------------
-// Bedrock Client
+// OpenAI Client
 // ---------------------------------------------------------------------------
-const bedrockClient = new BedrockRuntimeClient({
-  region: process.env.AWS_REGION || "eu-central-1",
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 // ---------------------------------------------------------------------------
-// Retry Helper (exponential backoff for Bedrock throttling)
+// Retry Helper (exponential backoff)
 // ---------------------------------------------------------------------------
 async function withRetry<T>(
   fn: () => Promise<T>,
   opts: { maxRetries?: number; baseDelayMs?: number; retryableErrors?: string[] } = {}
 ): Promise<T> {
-  const { maxRetries = 3, baseDelayMs = 1000, retryableErrors = ["ThrottlingException", "ServiceUnavailableException", "TooManyRequestsException"] } = opts;
+  const { maxRetries = 3, baseDelayMs = 1000, retryableErrors = ["429", "500", "503"] } = opts;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error: any) {
       const isRetryable = retryableErrors.some(
-        (e) => error?.name === e || error?.Code === e || error?.message?.includes(e)
+        (e) => error?.status?.toString() === e || error?.code === e || error?.message?.includes(e)
       );
 
       if (!isRetryable || attempt === maxRetries) {
@@ -56,9 +53,8 @@ async function withRetry<T>(
 
       const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
 
-      // Replace console.warn with structured logging
-      logger.warn('Bedrock retry attempt', {
-        operation: 'bedrock-retry',
+      logger.warn('OpenAI retry attempt', {
+        operation: 'openai-retry',
         attempt: attempt + 1,
         maxRetries,
         delayMs: Math.round(delay),
@@ -217,16 +213,18 @@ export async function proofreadEntry(
     }
 
     // -----------------------------------------------------------------------
-    // Step 2: Call Bedrock
+    // Step 2: Call OpenAI
     // -----------------------------------------------------------------------
-    logger.debug('Calling Bedrock API', {
-      operation: 'bedrock-invoke',
-      model: 'anthropic.claude-3-5-sonnet-20241022-v2:0'
+    const modelId = "gpt-4o";
+
+    logger.debug('Calling OpenAI API', {
+      operation: 'openai-create',
+      model: modelId
     });
 
     const generation = trace.generation({
-      name: "bedrock-claude",
-      model: "anthropic.claude-3-5-sonnet-20241022-v2:0",
+      name: "openai-gpt4o",
+      model: modelId,
       input: compiledPrompt,
       modelParameters: {
         max_tokens: 2048,
@@ -234,48 +232,37 @@ export async function proofreadEntry(
       },
     });
 
-    const bedrockStartTime = Date.now();
-    const bedrockResponse = await withRetry(() =>
-      bedrockClient.send(
-        new InvokeModelCommand({
-          modelId: "anthropic.claude-3-5-sonnet-20241022-v2:0",
-          contentType: "application/json",
-          accept: "application/json",
-          body: JSON.stringify({
-            anthropic_version: "bedrock-2023-05-31",
-            max_tokens: 2048,
-            temperature: 0,
-            messages: [
-              {
-                role: "user",
-                content: compiledPrompt,
-              },
-            ],
-          }),
-        })
-      )
+    const openaiStartTime = Date.now();
+    const completion = await withRetry(() =>
+      openai.chat.completions.create({
+        model: modelId,
+        messages: [
+          {
+            role: "user",
+            content: compiledPrompt,
+          },
+        ],
+        temperature: 0,
+        max_tokens: 2048,
+      })
     );
-    const bedrockDuration = Date.now() - bedrockStartTime;
+    const openaiDuration = Date.now() - openaiStartTime;
 
-    const responseBody = JSON.parse(
-      new TextDecoder().decode(bedrockResponse.body)
-    );
-    const rawResponse = responseBody.content[0].text;
-    const inputTokens = responseBody.usage?.input_tokens || 0;
-    const outputTokens = responseBody.usage?.output_tokens || 0;
-    const modelId = "anthropic.claude-3-5-sonnet-20241022-v2:0";
+    const rawResponse = completion.choices[0].message.content || "";
+    const inputTokens = completion.usage?.prompt_tokens || 0;
+    const outputTokens = completion.usage?.completion_tokens || 0;
 
     // Calculate cost
     const cost = calculateCost(modelId, inputTokens, outputTokens);
 
-    // Log Bedrock operation performance
-    logger.logBedrock({
+    // Log OpenAI operation performance
+    logger.logOpenAI({
       model: modelId,
-      operation: 'invoke',
-      duration: bedrockDuration,
+      duration: openaiDuration,
       tokenUsage: {
-        inputTokens,
-        outputTokens,
+        promptTokens: inputTokens,
+        completionTokens: outputTokens,
+        totalTokens: inputTokens + outputTokens
       },
       cost,
     });

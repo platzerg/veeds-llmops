@@ -2,9 +2,12 @@
 // Logger Singleton - Main logging interface with Pino backend
 // =============================================================================
 import pino from 'pino';
-import { LoggerConfig, LogLevel, loadConfig, validateConfig } from './config.js';
-import { LogContext, getContextManager } from './context-manager.js';
-import { LogEntry, JSONFormatter, PrettyFormatter } from './formatters.js';
+import { loadConfig, validateConfig } from './config.ts';
+import type { LoggerConfig, LogLevel } from './config.ts';
+import { getContextManager } from './context-manager.ts';
+import type { LogContext } from './context-manager.ts';
+import { JSONFormatter, PrettyFormatter } from './formatters.ts';
+import type { LogEntry } from './formatters.ts';
 
 // Export LogContext for external use
 export type { LogContext };
@@ -21,6 +24,19 @@ export interface BedrockOperation {
   tokenUsage: {
     inputTokens: number;
     outputTokens: number;
+  };
+  cost: number;
+  retryCount?: number;
+  error?: string;
+}
+
+export interface OpenAIOperation {
+  model: string;
+  duration: number;
+  tokenUsage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
   };
   cost: number;
   retryCount?: number;
@@ -54,10 +70,10 @@ export class Logger {
   constructor(config?: Partial<LoggerConfig>) {
     this.config = { ...loadConfig(), ...config };
     validateConfig(this.config);
-    
+
     this.jsonFormatter = new JSONFormatter(this.config);
     this.prettyFormatter = new PrettyFormatter(this.config);
-    
+
     // Configure Pino based on format
     const pinoConfig: pino.LoggerOptions = {
       level: this.config.level,
@@ -165,6 +181,25 @@ export class Logger {
     });
   }
 
+
+  logOpenAI(operation: OpenAIOperation): void {
+    if (!this.config.enablePerformanceLogging) return;
+
+    const level = operation.error ? 'error' : 'info';
+    const message = `OpenAI completion completed`;
+
+    this.log(level, message, {
+      operation: 'openai-completion',
+      component: 'openai-client',
+      duration: operation.duration,
+      model: operation.model,
+      tokenUsage: operation.tokenUsage,
+      cost: operation.cost,
+      retryCount: operation.retryCount,
+      ...(operation.error && { error: { message: operation.error } }),
+    });
+  }
+
   logBedrock(operation: BedrockOperation): void {
     if (!this.config.enablePerformanceLogging) return;
 
@@ -234,7 +269,7 @@ export class Logger {
 
   private log(level: LogLevel, message: string, context?: LogContext): void {
     const startTime = performance.now();
-    
+
     try {
       // Merge context from all sources
       const currentContext = this.contextManager.getCurrentContext();
@@ -297,18 +332,19 @@ export const logger = {
   warn: (message: string, context?: LogContext) => getLogger().warn(message, context),
   error: (message: string | Error, context?: LogContext) => getLogger().error(message, context),
   fatal: (message: string | Error, context?: LogContext) => getLogger().fatal(message, context),
-  
+
   // Console compatibility
   log: (message: string, context?: LogContext) => getLogger().info(message, context),
-  
+
   // Performance methods
   time: (label: string) => getLogger().time(label),
   timeEnd: (label: string, context?: LogContext) => getLogger().timeEnd(label, context),
-  
+
   // Specialized logging
   logBedrock: (operation: BedrockOperation) => getLogger().logBedrock(operation),
+  logOpenAI: (operation: OpenAIOperation) => getLogger().logOpenAI(operation),
   logPerformance: (metrics: PerformanceMetrics) => getLogger().logPerformance(metrics),
-  
+
   // Context methods
   child: (context: LogContext) => getLogger().child(context),
   withTrace: (traceId: string, spanId?: string) => getLogger().withTrace(traceId, spanId),

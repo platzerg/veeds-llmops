@@ -17,6 +17,10 @@ import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import Langfuse from "langfuse";
+import dotenv from "dotenv";
+
+// Load environment variables from .env
+dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");

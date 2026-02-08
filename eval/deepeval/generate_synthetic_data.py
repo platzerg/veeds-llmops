@@ -1,13 +1,13 @@
 import os
 import json
 from deepeval.synthesizer import Synthesizer
-from bedrock_model import BedrockClaude
+from deepeval.models import GPTModel
 
 def generate_synthetic_data():
     print("🚀 Starting Synthetic Data Generation...")
     
-    # Initialize the LLM (Claude 3.5 Sonnet)
-    model = BedrockClaude()
+    # Initialize the LLM (GPT-4o)
+    model = GPTModel(model="gpt-4o")
     
     # Define the context for synthesis
     # This guides the model on what kind of vehicle data to generate
@@ -23,8 +23,8 @@ def generate_synthetic_data():
     
     # Generate 10 high-quality test cases
     # In a real scenario, you can scale this to 100+
-    goldens = synthesizer.synthesize_from_context(
-        context=context,
+    goldens = synthesizer.generate_goldens_from_contexts(
+        contexts=[context],
         max_goldens_per_context=10,
         include_expected_output=True
     )

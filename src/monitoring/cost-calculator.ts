@@ -14,6 +14,15 @@ const PRICING: Record<string, { input: number; output: number }> = {
     "anthropic.claude-3-haiku-20240307-v1:0": {
         input: 0.25,
         output: 1.25
+    },
+    // OpenAI Pricing (as of Feb 2026)
+    "gpt-4o": {
+        input: 2.50,
+        output: 10.00
+    },
+    "gpt-4o-mini": {
+        input: 0.15,
+        output: 0.60
     }
 };
 
